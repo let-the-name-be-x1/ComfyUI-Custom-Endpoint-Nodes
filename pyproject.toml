@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "custom-endpoint-nodes"
+version = "0.1.0"
+description = "ComfyUI nodes that call GPT / Gemini / Grok models through a user-supplied API endpoint"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+# Intentionally empty: ComfyUI already ships torch/numpy/Pillow, and declaring
+# them here makes ComfyUI Manager try to pip-install and can replace the user's
+# CUDA build with a CPU one.
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/example/ComfyUI-Custom-Endpoint-Nodes"
+
+[tool.comfy]
+PublisherId = "example"
+DisplayName = "Custom Endpoint API Nodes"
+Icon = ""
+web = "custom_endpoint/web"

@@ -1,0 +1,14 @@
+# Byte-compiled / caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local scratch
+input/
+output/
+*.log
+
+# Editors
+.vscode/
+.idea/
+*.swp
