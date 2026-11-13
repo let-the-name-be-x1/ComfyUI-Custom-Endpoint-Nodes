@@ -23,6 +23,8 @@ PROTOCOL_OPENAI_CHAT = "openai_chat"
 PROTOCOL_OPENAI_RESPONSES = "openai_responses"
 PROTOCOL_GEMINI = "gemini"
 PROTOCOL_GROK = "grok"
+PROTOCOL_QWEN = "qwen"
+PROTOCOL_QWEN_IMAGES = "qwen_images"
 
 API_PROTOCOLS: tuple[str, ...] = (
     PROTOCOL_AUTO,
@@ -31,6 +33,8 @@ API_PROTOCOLS: tuple[str, ...] = (
     PROTOCOL_OPENAI_RESPONSES,
     PROTOCOL_GEMINI,
     PROTOCOL_GROK,
+    PROTOCOL_QWEN,
+    PROTOCOL_QWEN_IMAGES,
 )
 
 PROTOCOL_LABELS = {
@@ -40,11 +44,14 @@ PROTOCOL_LABELS = {
     PROTOCOL_OPENAI_RESPONSES: "openai_responses (/responses)",
     PROTOCOL_GEMINI: "gemini (/models/{model}:generateContent)",
     PROTOCOL_GROK: "grok (/images/* + /chat/completions)",
+    PROTOCOL_QWEN: "qwen (DashScope 原生 /services/aigc/multimodal-generation/generation)",
+    PROTOCOL_QWEN_IMAGES: "qwen_images (中转常见 /images/edits + /images/generations)",
 }
 
 FAMILY_OPENAI = "openai"
 FAMILY_GEMINI = "gemini"
 FAMILY_GROK = "grok"
+FAMILY_QWEN = "qwen"
 
 _PROTOCOL_FAMILY = {
     PROTOCOL_OPENAI_IMAGES: FAMILY_OPENAI,
@@ -52,7 +59,14 @@ _PROTOCOL_FAMILY = {
     PROTOCOL_OPENAI_RESPONSES: FAMILY_OPENAI,
     PROTOCOL_GEMINI: FAMILY_GEMINI,
     PROTOCOL_GROK: FAMILY_GROK,
+    PROTOCOL_QWEN: FAMILY_QWEN,
+    PROTOCOL_QWEN_IMAGES: FAMILY_QWEN,
 }
+
+# ``auto`` needs the host to tell the two Qwen surfaces apart: the official
+# DashScope host speaks the native multimodal-generation API, while a relay
+# (one-api / new-api / LiteLLM style) only exposes OpenAI-compatible routes.
+_DASHSCOPE_HOST_MARKERS = ("dashscope", "aliyuncs.com", "bailian")
 
 # Friendly partner-node labels -> real API model ids.
 GEMINI_MODEL_IDS = {
@@ -73,6 +87,14 @@ GROK_MODEL_IDS = {
     "grok-imagine-image-pro": "grok-imagine-image-pro",
     "grok-imagine-image": "grok-imagine-image",
 }
+QWEN_MODEL_IDS = {
+    "qwen image 3 pro": "qwen-image-3.0-pro",
+    "qwen image 3.0 pro": "qwen-image-3.0-pro",
+    "qwen-image-3-pro": "qwen-image-3.0-pro",
+    "qwen image 3": "qwen-image-3.0",
+    "qwen image 3.0": "qwen-image-3.0",
+    "qwen-image-3": "qwen-image-3.0",
+}
 
 _VERSION_SEGMENT_RE_PREFIXES = ("v1", "v2", "v3", "v1beta", "v2beta")
 
@@ -87,11 +109,18 @@ def normalize_model_id(value: str, protocol: str | None = None) -> str:
         return GEMINI_MODEL_IDS.get(key, model)
     if protocol == PROTOCOL_GROK:
         return GROK_MODEL_IDS.get(key, model)
+    if protocol == PROTOCOL_QWEN:
+        return QWEN_MODEL_IDS.get(key, model)
     return model
 
 
-def infer_protocol(model: str) -> str:
-    """Best-effort protocol guess for ``auto``."""
+def infer_protocol(model: str, base_url: str = "") -> str:
+    """Best-effort protocol guess for ``auto``.
+
+    ``base_url`` only matters for Qwen: the official DashScope host speaks the
+    native multimodal-generation API, everything else (relays / proxies) almost
+    always exposes just the OpenAI-compatible ``/images/*`` routes.
+    """
     lowered = " ".join(str(model or "").lower().split())
     if not lowered:
         return PROTOCOL_OPENAI_CHAT
@@ -103,7 +132,19 @@ def infer_protocol(model: str) -> str:
         return PROTOCOL_GROK
     if "gemini" in lowered or "nano-banana" in lowered or "nano banana" in lowered:
         return PROTOCOL_GEMINI
+    if "qwen-image" in lowered or "qwen_image" in lowered:
+        host = _host_of(base_url)
+        if not host or any(marker in host for marker in _DASHSCOPE_HOST_MARKERS):
+            return PROTOCOL_QWEN
+        return PROTOCOL_QWEN_IMAGES
     return PROTOCOL_OPENAI_CHAT
+
+
+def _host_of(base_url: str) -> str:
+    try:
+        return (urlsplit(str(base_url or "")).netloc or "").lower()
+    except ValueError:
+        return ""
 
 
 def _path_has_version(path: str) -> bool:
@@ -182,7 +223,7 @@ class ProviderConfig:
 
         protocol = self.api_protocol
         if protocol == PROTOCOL_AUTO:
-            protocol = infer_protocol(self.model)
+            protocol = infer_protocol(self.model, self.base_url)
         object.__setattr__(self, "api_protocol", protocol)
         object.__setattr__(self, "model", normalize_model_id(self.model, protocol))
 
@@ -280,11 +321,11 @@ def build_provider(
         from .secrets import resolve_session_credential
 
         protocol = api_protocol if api_protocol in API_PROTOCOLS else PROTOCOL_AUTO
-        resolved = protocol if protocol != PROTOCOL_AUTO else infer_protocol(model)
         # The prompt guard swaps the endpoint for an opaque handle (so the PNG
         # metadata never carries it); resolve it back.  consume=False: an
         # endpoint is not a secret and re-queueing must keep working.
         endpoint_value = resolve_session_credential(endpoint, consume=False)
+        resolved = protocol if protocol != PROTOCOL_AUTO else infer_protocol(model, endpoint_value)
         base_url = normalize_base_url(endpoint_value, resolved)
         config = ProviderConfig(
             base_url=base_url,

@@ -19,15 +19,25 @@ import os
 from dataclasses import replace
 from typing import Any
 
+import numpy as np
+
 if __package__:
-    from .custom_endpoint import api_gemini, api_grok, api_openai
+    from .custom_endpoint import api_gemini, api_grok, api_openai, api_qwen, detailer
     from .custom_endpoint import widgets as W
     from .custom_endpoint.batch import resolve_batch, run_concurrent
     from .custom_endpoint.errors import EndpointError, error_json, report_json
     from .custom_endpoint.images import (
+        FIT_CONTAIN,
+        FIT_MODES,
         MAX_INPUT_IMAGES,
+        PAD_COLOR_NAMES,
+        POS_CENTER,
+        POSITIONS,
+        SIZE_MODE_MAX,
+        SIZE_MODES,
         frame_count,
         image_to_pngs,
+        iter_frames,
         mask_to_rgba_png,
         one_pixel_image,
         png_bytes_to_tensor,
@@ -41,20 +51,30 @@ if __package__:
         PROTOCOL_OPENAI_CHAT,
         PROTOCOL_OPENAI_IMAGES,
         PROTOCOL_OPENAI_RESPONSES,
+        PROTOCOL_QWEN,
+        PROTOCOL_QWEN_IMAGES,
         ProviderConfig,
         build_provider,
         require_protocols,
     )
     from .custom_endpoint.transport import HttpClient
 else:  # loaded as a top-level module (tests / non-package import)
-    from custom_endpoint import api_gemini, api_grok, api_openai
+    from custom_endpoint import api_gemini, api_grok, api_openai, api_qwen, detailer
     from custom_endpoint import widgets as W
     from custom_endpoint.batch import resolve_batch, run_concurrent
     from custom_endpoint.errors import EndpointError, error_json, report_json
     from custom_endpoint.images import (
+        FIT_CONTAIN,
+        FIT_MODES,
         MAX_INPUT_IMAGES,
+        PAD_COLOR_NAMES,
+        POS_CENTER,
+        POSITIONS,
+        SIZE_MODE_MAX,
+        SIZE_MODES,
         frame_count,
         image_to_pngs,
+        iter_frames,
         mask_to_rgba_png,
         one_pixel_image,
         png_bytes_to_tensor,
@@ -68,6 +88,8 @@ else:  # loaded as a top-level module (tests / non-package import)
         PROTOCOL_OPENAI_CHAT,
         PROTOCOL_OPENAI_IMAGES,
         PROTOCOL_OPENAI_RESPONSES,
+        PROTOCOL_QWEN,
+        PROTOCOL_QWEN_IMAGES,
         ProviderConfig,
         build_provider,
         require_protocols,
@@ -353,6 +375,17 @@ class _BaseCallNode:
     def _parse(self, provider: ProviderConfig, response: Any, client: HttpClient):
         raise NotImplementedError
 
+    def _request_alternative(
+        self, provider: ProviderConfig, job: dict[str, Any], request: Any, response: Any
+    ):
+        """Return a replacement request when the endpoint rejected this surface.
+
+        Used by protocols that are served in more than one wire shape (a relay
+        answering 404 'Invalid URL' for the native Qwen path).  Returning
+        ``None`` keeps the original response authoritative.
+        """
+        return None
+
     @property
     def _wants_images(self) -> bool:
         return "images" in self.RESULT_KEYS
@@ -420,6 +453,50 @@ class _BaseCallNode:
                 job, error, resolver, provider=provider, request=request, request_log=request_log
             )
 
+        fallback = None
+        if not response.ok:
+            try:
+                alternative = self._request_alternative(provider, job, request, response)
+            except Exception:  # noqa: BLE001 - the original response stays authoritative
+                alternative = None
+            if alternative is not None:
+                fallback = {
+                    "reason": "the endpoint does not serve the request's route",
+                    "first_status": response.status,
+                    "first_url": request.url,
+                    "first_error": response.excerpt(300),
+                    "url": alternative.url,
+                }
+                try:
+                    request = alternative
+                    request_log = request_log_json(
+                        provider=provider,
+                        method=request.method,
+                        url=request.url,
+                        headers=request.headers,
+                        body=request.effective_log_body(),
+                        image_summary=request.image_summary,
+                        operation=request.operation,
+                        item_index=job["_index"],
+                        extra={"fallback": fallback},
+                    )
+                    response = client.request(
+                        request.method,
+                        request.url,
+                        headers=request.headers,
+                        json_body=request.json_body,
+                        body=request.body,
+                        content_type=request.content_type,
+                        timeout=provider.timeout_sec,
+                        retries=provider.retries,
+                        phase=request.operation or "request",
+                    )
+                except Exception as error:  # noqa: BLE001
+                    return self._failure(
+                        job, error, resolver, provider=provider, request=request,
+                        request_log=request_log,
+                    )
+
         try:
             parsed = self._parse(provider, response, client)
         except Exception as error:  # noqa: BLE001
@@ -449,6 +526,7 @@ class _BaseCallNode:
             response=response,
             parsed=parsed_report,
             item_index=job["_index"],
+            extra={"fallback": fallback} if fallback else None,
         )
         return {
             "images": images,
@@ -729,6 +807,619 @@ class CustomEndpointGrokImage(_ImageCallNode):
 
 
 # ---------------------------------------------------------------------------
+# Qwen image (DashScope multimodal-generation)
+# ---------------------------------------------------------------------------
+QWEN_SIZE_MODES = ("match input", "auto", "custom")
+QWEN_PROTOCOLS = (PROTOCOL_QWEN, PROTOCOL_QWEN_IMAGES)
+QWEN_SIZE_TOOLTIP = (
+    "输出分辨率：match input 沿用第一张参考图的尺寸（会自动收进允许的像素范围）；"
+    "auto 由服务端按输入比例选择；custom 使用下面的宽高。"
+)
+
+
+class _QwenImageBase(_ImageCallNode):
+    """Shared wiring for the two Qwen surfaces (native / OpenAI-compatible)."""
+
+    ALLOWED_PROTOCOLS = QWEN_PROTOCOLS
+    OPERATION = "generate"
+
+    def _build_request(self, provider, job, dialect=None):
+        """``dialect`` is only passed when retrying on another wire shape."""
+        raise NotImplementedError
+
+    def _request_alternative(self, provider, job, request, response):
+        """A relay 404s the DashScope path; retry once on ``/images/*``."""
+        if provider.api_protocol != PROTOCOL_QWEN or not api_qwen.is_missing_route(response):
+            return None
+        return self._build_request(provider, job, api_qwen.DIALECT_OPENAI_IMAGES)
+
+    def _parse(self, provider, response, client):
+        return api_qwen.parse_image_response(provider, response, client, timeout=provider.timeout_sec)
+
+
+class CustomEndpointQwenImage(_QwenImageBase):
+    """Text to image, mirroring the partner node `Qwen Image 3 Text to Image`."""
+
+    LABEL = "自定义端点 · Qwen 图像"
+    OPERATION = "generate"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        required = {
+            "provider": (PROVIDER_TYPE,),
+            "prompt": ("STRING", {"default": "", "multiline": True, "tooltip": "图像提示词（中英文均可）。"}),
+            "negative_prompt": (
+                "STRING",
+                {"default": "", "multiline": True, "tooltip": "反向提示词；留空则不发送该字段。"},
+            ),
+            "width": (
+                "INT",
+                {
+                    "default": 1024,
+                    "min": 256,
+                    "max": 2560,
+                    "step": 16,
+                    "tooltip": "输出宽度。总像素需在 512×512 与 2560×2560 之间（中转上游常见上限 2048×2048），"
+                    "宽高比 1:8–8:1。",
+                },
+            ),
+            "height": (
+                "INT",
+                {
+                    "default": 1024,
+                    "min": 256,
+                    "max": 2560,
+                    "step": 16,
+                    "tooltip": "输出高度。总像素需在 512×512 与 2560×2560 之间（中转上游常见上限 2048×2048），"
+                    "宽高比 1:8–8:1。",
+                },
+            ),
+            "n": ("INT", {"default": 1, "min": 1, "max": 6, "step": 1, "tooltip": "生成张数，一次请求返回一个批次。"}),
+            "seed": ("INT", {"default": 42, "min": 0, "max": 2147483647, "step": 1, "tooltip": "随机种子。"}),
+            "prompt_extend": ("BOOLEAN", {"default": True, "tooltip": "是否让服务端 AI 扩写提示词。"}),
+            "watermark": ("BOOLEAN", {"default": False, "tooltip": "是否加 AI 生成水印。"}),
+        }
+        required.update(cls._common_widgets())
+        return {"required": required}
+
+    def _build_request(self, provider, job, dialect=None):
+        params = _clean_params(
+            job,
+            ("negative_prompt", "width", "height", "n", "seed", "prompt_extend", "watermark"),
+        )
+        return api_qwen.prepare_image_request(
+            provider,
+            operation="generate",
+            prompt=str(_first(job.get("prompt")) or ""),
+            params=params,
+            dialect=dialect,
+        )
+
+
+class CustomEndpointQwenImageEdit(_QwenImageBase):
+    """Prompt-driven edit of 1-3 reference images, mirroring `Qwen Image 3 Edit`."""
+
+    LABEL = "自定义端点 · Qwen 图像编辑"
+    OPERATION = "edit"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        required = {
+            "provider": (PROVIDER_TYPE,),
+            "prompt": (
+                "STRING",
+                {
+                    "default": "",
+                    "multiline": True,
+                    "tooltip": "编辑指令（中英文均可）；用 @Image1 / @Image2 引用参考图，"
+                    "按连线顺序从 1 开始编号（批量输入按帧计数）。",
+                },
+            ),
+            "negative_prompt": (
+                "STRING",
+                {"default": "", "multiline": True, "tooltip": "反向提示词；留空则不发送该字段。"},
+            ),
+            "size_mode": W.plain_combo(QWEN_SIZE_MODES, "match input", tooltip=QWEN_SIZE_TOOLTIP),
+            "width": (
+                "INT",
+                {"default": 1024, "min": 256, "max": 2560, "step": 16, "tooltip": "size_mode=custom 时的输出宽度。"},
+            ),
+            "height": (
+                "INT",
+                {"default": 1024, "min": 256, "max": 2560, "step": 16, "tooltip": "size_mode=custom 时的输出高度。"},
+            ),
+            "n": ("INT", {"default": 1, "min": 1, "max": 6, "step": 1, "tooltip": "生成张数，一次请求返回一个批次。"}),
+            "seed": ("INT", {"default": 42, "min": 0, "max": 2147483647, "step": 1, "tooltip": "随机种子。"}),
+            "prompt_extend": ("BOOLEAN", {"default": True, "tooltip": "是否让服务端 AI 扩写提示词。"}),
+            "watermark": ("BOOLEAN", {"default": False, "tooltip": "是否加 AI 生成水印。"}),
+        }
+        required.update(cls._common_widgets())
+        optional = cls._image_inputs(api_qwen.MAX_EDIT_IMAGES)
+        return {"required": required, "optional": optional}
+
+    def _build_request(self, provider, job, dialect=None):
+        images = _collect_images(job, REFERENCE_SLOTS[: api_qwen.MAX_EDIT_IMAGES])
+        params = _clean_params(
+            job,
+            ("negative_prompt", "width", "height", "n", "seed", "prompt_extend", "watermark"),
+        )
+        params["size_mode"] = str(_first(job.get("size_mode")) or "match input")
+        return api_qwen.prepare_image_request(
+            provider,
+            operation="edit",
+            prompt=str(_first(job.get("prompt")) or ""),
+            images=images,
+            params=params,
+            image_summary={"reference_images": [len(png) for png in images]} if images else {},
+            dialect=dialect,
+        )
+
+
+# ---------------------------------------------------------------------------
+# API detailer: mask -> crop -> hosted edit -> feathered paste
+# ---------------------------------------------------------------------------
+API_DETAILER_PROTOCOLS = (
+    PROTOCOL_GEMINI,
+    PROTOCOL_OPENAI_IMAGES,
+    PROTOCOL_GROK,
+    PROTOCOL_QWEN,
+    PROTOCOL_QWEN_IMAGES,
+)
+
+
+def _placeholder(tensor) -> bool:
+    """True when a per-region result is the 1x1 failure placeholder."""
+    shape = tuple(int(value) for value in tensor.shape)
+    return len(shape) == 4 and shape[1] == 1 and shape[2] == 1
+
+
+def _stack_frames(frames):
+    """Compose a list of float 0-1 HWC frames into one IMAGE tensor."""
+    import torch
+
+    array = np.stack([np.clip(frame, 0.0, 1.0).astype(np.float32) for frame in frames])
+    return torch.from_numpy(array)
+
+
+def _frame_tensor(frame):
+    """Wrap one float 0-1 HWC frame into a single-image IMAGE tensor."""
+    import torch
+
+    return torch.from_numpy(np.clip(np.asarray(frame, np.float32), 0.0, 1.0))[None]
+
+
+def _detailer_prompt(prompt: Any, guide: str) -> str:
+    """User prompt plus the sentence that explains the visual mask guide."""
+    text = str(prompt or "").strip()
+    hint = detailer.GUIDE_HINTS.get(guide, "")
+    if not hint:
+        return text
+    return f"{text}\n\n{hint}" if text else hint
+
+
+class CustomEndpointAPIDetailer(_BaseCallNode):
+    """Mask-driven local repaint performed by a hosted image-edit model.
+
+    The pipeline is Impact Pack's ``MaskDetailer`` with the diffusion sampler
+    replaced by one API call per region:
+
+    ``mask -> connected regions -> crop (bbox x crop_factor) -> resize ->
+    edit -> resize back -> feathered paste``
+
+    With ``mask_guide=none`` (default) the crop goes out **untouched** — no mask,
+    no markers — and only the prompt guides the edit.  ``paste_area`` decides
+    where the answer is blended back: the whole crop with a ramp on the crop
+    border (default), or the mask only.
+    """
+
+    LABEL = "自定义端点 · API 局部重绘"
+    ALLOWED_PROTOCOLS = API_DETAILER_PROTOCOLS
+    RESULT_KEYS = ("images", "texts", "request_log", "response_log", "cropped")
+    RETURN_NAMES = RESULT_KEYS
+    RETURN_TYPES = ("IMAGE", "STRING", "STRING", "STRING", "IMAGE")
+    OUTPUT_IS_LIST = (True, True, True, True, True)
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        required = {
+            "provider": (PROVIDER_TYPE,),
+            "image": ("IMAGE", {"tooltip": "待修复的原图；批量时逐帧处理。"}),
+            "mask": (
+                "MASK",
+                {"tooltip": "白色 = 要重绘的区域。按连通域切成若干块，每块发一次编辑请求。"},
+            ),
+            "prompt": (
+                "STRING",
+                {
+                    "default": "",
+                    "multiline": True,
+                    "tooltip": "只描述遮罩里应该出现什么（+风格），不需要写全图：周边像素本身就是上下文。",
+                },
+            ),
+            "crop_factor": (
+                "FLOAT",
+                {
+                    "default": 3.0,
+                    "min": 1.0,
+                    "max": 10.0,
+                    "step": 0.1,
+                    "tooltip": "裁剪框 = 遮罩外接框 × 该倍数；越大上下文越多、边缘越容易接上，但每像素细节更少。",
+                },
+            ),
+            "target_resolution": (
+                "INT",
+                {
+                    "default": 1024,
+                    "min": 0,
+                    "max": 4096,
+                    "step": 8,
+                    "tooltip": "发给模型的裁剪块长边像素（会放大也会缩小）；0 = 保持原始裁剪尺寸。",
+                },
+            ),
+            "feather": (
+                "INT",
+                {
+                    "default": 5,
+                    "min": 0,
+                    "max": 100,
+                    "step": 1,
+                    "tooltip": "贴回时混合带的宽度（原图像素），作用位置由 paste_area 决定："
+                    "crop box → 矩形框四边；mask → 遮罩边缘（对称羽化，向内也会侵蚀）。0 = 硬切。",
+                },
+            ),
+            "drop_size": (
+                "INT",
+                {
+                    "default": 10,
+                    "min": 1,
+                    "max": 100000,
+                    "step": 1,
+                    "tooltip": "面积小于该像素数的连通域直接忽略（过滤噪点小斑）。",
+                },
+            ),
+            "mask_grow": (
+                "INT",
+                {
+                    "default": 0,
+                    "min": 0,
+                    "max": 128,
+                    "step": 1,
+                    "tooltip": "先把遮罩向外膨胀这么多像素再切块：模型不会严格遵守边界，留点余量更稳。",
+                },
+            ),
+            "paste_area": W.plain_combo(
+                detailer.PASTE_AREAS,
+                detailer.PASTE_CROP,
+                tooltip=(
+                    "模型结果贴回哪里：crop box = 整块裁剪贴回，羽化落在矩形框四边"
+                    "（接缝离开主体轮廓，默认）；mask = 只贴遮罩内，羽化落在遮罩边缘。"
+                ),
+            ),
+            "mask_guide": W.plain_combo(
+                detailer.GUIDES,
+                detailer.GUIDE_NONE,
+                tooltip=(
+                    "如何把遮罩告诉模型：none = 原样发送、只靠提示词（默认）；"
+                    "outline = 黄框描边；dim outside = 圈外压暗；tint inside = 圈内染色；"
+                    "native mask = 原生 mask 字段（仅 GPT 图像）。"
+                    "paste_area=crop box 时这些标记会被忽略（否则会被贴进画面）。"
+                ),
+            ),
+        }
+        required.update(cls._common_widgets())
+        return {"required": required}
+
+    # -- request / parse ---------------------------------------------------
+    @staticmethod
+    def _region_params(provider: ProviderConfig, region) -> dict[str, Any]:
+        # Only Gemini exposes an aspect-ratio knob; Grok rejects a custom ratio
+        # for a single source image and the others derive it from the input.
+        if provider.api_protocol == PROTOCOL_GEMINI:
+            return {
+                "aspect_ratio": detailer.aspect_ratio_for(region.width, region.height),
+                "mime_type": "image/png",
+            }
+        return {}
+
+    def _build_request(self, provider, job):
+        region = job["_region"]
+        guide = str(job.get("_guide") or detailer.GUIDE_NONE)
+        target = int(job.get("_target") or 0)
+        image_png, mask_png = detailer.encode_region(
+            region, guide, target, int(job.get("_feather") or 0)
+        )
+        if mask_png is not None and provider.api_protocol != PROTOCOL_OPENAI_IMAGES:
+            raise EndpointError(
+                "mask_guide='native mask' 只有 GPT 图像协议（/images/edits）支持；"
+                "Gemini / Grok / Qwen 请改用 outline、dim outside、tint inside 或 none。",
+                error_type="validation",
+                error_code="mask_guide_unsupported",
+                phase="validate",
+            )
+        prompt = _detailer_prompt(job.get("_prompt"), guide)
+        params = self._region_params(provider, region)
+        summary = {
+            "reference_images": [len(image_png)],
+            "region": [int(value) for value in region.crop_region],
+            "guide": guide,
+        }
+        return _prepare_edit_request(provider, prompt, image_png, mask_png, params, summary)
+
+    def _parse(self, provider, response, client):
+        if provider.api_protocol == PROTOCOL_GEMINI:
+            return api_gemini.parse_response(
+                provider, response, client, timeout=provider.timeout_sec, want_images=True
+            )
+        if provider.api_protocol == PROTOCOL_OPENAI_IMAGES:
+            return api_openai.parse_image_response(
+                provider, response, client, timeout=provider.timeout_sec
+            )
+        if provider.api_protocol == PROTOCOL_GROK:
+            return api_grok.parse_image_response(
+                provider, response, client, timeout=provider.timeout_sec
+            )
+        return api_qwen.parse_image_response(
+            provider, response, client, timeout=provider.timeout_sec
+        )
+
+    # -- execution ---------------------------------------------------------
+    def execute(self, **kwargs):
+        length, aligned = resolve_batch(dict(kwargs))
+        jobs = []
+        for index in range(length):
+            job = {
+                name: (values[index] if index < len(values) else values[-1])
+                for name, values in aligned.items()
+            }
+            job["_index"] = index
+            jobs.append(job)
+
+        resolver = _ProviderResolver()
+        concurrency = int(_first(aligned.get("max_concurrency")) or DEFAULT_CONCURRENCY)
+        results = run_concurrent(lambda job: self._run_frame(job, resolver), jobs, concurrency)
+        normalized = [
+            result if isinstance(result, dict) else self._failure(jobs[index], result, resolver)
+            for index, result in enumerate(results)
+        ]
+        cropped: list[Any] = []
+        for result in normalized:
+            cropped.extend(result.get("cropped") or [])
+        if not cropped:
+            cropped = [one_pixel_image()]
+        return (
+            [result["images"] for result in normalized],
+            [result["texts"] for result in normalized],
+            [result["request_log"] for result in normalized],
+            [result["response_log"] for result in normalized],
+            cropped,
+        )
+
+    def _run_frame(self, job: dict[str, Any], resolver: _ProviderResolver) -> dict[str, Any]:
+        try:
+            image_value = _first(job.get("image"))
+            mask_value = _first(job.get("mask"))
+            if image_value is None:
+                raise EndpointError(
+                    "No image connected.", error_type="validation",
+                    error_code="image_missing", phase="validate",
+                )
+            if mask_value is None:
+                raise EndpointError(
+                    "No mask connected.", error_type="validation",
+                    error_code="mask_missing", phase="validate",
+                )
+            frames = detailer.frames_of(image_value)
+            masks = detailer.masks_of(mask_value)
+        except Exception as error:  # noqa: BLE001 - per-item failure is data
+            return self._failure(job, error, resolver)
+
+        if not frames:
+            return self._failure(
+                job,
+                EndpointError(
+                    "The image input is empty.", error_type="validation",
+                    error_code="image_missing", phase="validate",
+                ),
+                resolver,
+            )
+        if len(masks) == 1 and len(frames) > 1:
+            masks = masks * len(frames)
+        if len(masks) != len(frames):
+            return self._failure(
+                job,
+                EndpointError(
+                    f"Mask frames ({len(masks)}) must match image frames ({len(frames)}), "
+                    "or be a single frame that broadcasts.",
+                    error_type="validation",
+                    error_code="mask_frames_mismatch",
+                    phase="validate",
+                ),
+                resolver,
+            )
+
+        crop_factor = float(_first(job.get("crop_factor")) or 3.0)
+        target = int(_first(job.get("target_resolution")) or 0)
+        feather = int(_first(job.get("feather")) or 0)
+        drop_size = int(_first(job.get("drop_size")) or 10)
+        mask_grow = int(_first(job.get("mask_grow")) or 0)
+        guide = str(_first(job.get("mask_guide")) or detailer.GUIDE_NONE)
+        paste_area = str(_first(job.get("paste_area")) or detailer.PASTE_CROP)
+        prompt = str(_first(job.get("prompt")) or "")
+        provider_value = job.get("provider")
+
+        guide_note = ""
+        if paste_area == detailer.PASTE_CROP and guide != detailer.GUIDE_NONE:
+            # A marker inside the crop would be pasted back at full strength.
+            guide_note = (
+                f"mask_guide={guide} 已忽略：paste_area=crop box 会把整块裁剪贴回，"
+                "标记会被一起贴进画面。"
+            )
+            guide = detailer.GUIDE_NONE
+
+        composed_frames = []
+        frame_reports = []
+        cropped_frames: list[Any] = []
+        request_logs: list[str] = []
+        response_logs: list[str] = []
+        seen_regions = 0
+        painted_regions = 0
+        last_error = ""
+
+        for frame_index, (frame, mask) in enumerate(zip(frames, masks)):
+            composed = np.array(frame, dtype=np.float32, copy=True)
+            try:
+                regions = detailer.regions_from_mask(
+                    frame,
+                    mask,
+                    crop_factor=crop_factor,
+                    drop_size=drop_size,
+                    mask_grow=mask_grow,
+                )
+            except Exception as error:  # noqa: BLE001
+                return self._failure(job, error, resolver)
+
+            frame_report: dict[str, Any] = {
+                "frame": frame_index,
+                "regions": len(regions),
+                "paste_area": paste_area,
+                "items": [],
+            }
+            if guide_note:
+                frame_report["note"] = guide_note
+            seen_regions += len(regions)
+
+            for region_index, region in enumerate(regions):
+                region_job = {
+                    "provider": provider_value,
+                    "prompt": prompt,
+                    "_prompt": prompt,
+                    "_guide": guide,
+                    "_target": target,
+                    "_feather": feather,
+                    "_region": region,
+                    "_index": len(request_logs),
+                }
+                result = self._run_one(region_job, resolver)
+                request_logs.append(str(result.get("request_log") or ""))
+                response_logs.append(str(result.get("response_log") or ""))
+
+                item = detailer.region_report(region, region_index)
+                tensor = result.get("images")
+                if tensor is None or _placeholder(tensor):
+                    item["ok"] = False
+                    item["error"] = str(result.get("texts") or "region failed")[:600]
+                    last_error = item["error"]
+                else:
+                    edited = detailer.frames_of(tensor)[0]
+                    cropped_frames.append(_frame_tensor(edited))
+                    detailer.composite(composed, region, edited, feather, paste_area)
+                    item["ok"] = True
+                    item["edited_size"] = [int(edited.shape[0]), int(edited.shape[1])]
+                    painted_regions += 1
+                frame_report["items"].append(item)
+
+            composed_frames.append(composed)
+            frame_reports.append(frame_report)
+
+        if seen_regions > 0 and painted_regions == 0:
+            # Every region failed: keep the package convention (1x1 + error text)
+            # but leave the per-region logs in place for diagnosis.
+            response_logs.append(
+                json.dumps({"ok": False, "error": last_error or "every region failed"}, ensure_ascii=False)
+            )
+            return {
+                "images": one_pixel_image(),
+                "texts": last_error or "Every region failed.",
+                "request_log": self._merge_logs(request_logs),
+                "response_log": self._merge_logs(response_logs),
+                "cropped": cropped_frames,
+            }
+
+        report = {
+            "ok": True,
+            "frames": len(frames),
+            "regions": seen_regions,
+            "painted": painted_regions,
+            "paste_area": paste_area,
+            "detail": frame_reports,
+        }
+        if guide_note:
+            report["note"] = guide_note
+        return {
+            "images": _stack_frames(composed_frames),
+            "texts": json.dumps(report, ensure_ascii=False),
+            "request_log": self._merge_logs(request_logs),
+            "response_log": self._merge_logs(response_logs),
+            "cropped": cropped_frames,
+        }
+
+    @staticmethod
+    def _merge_logs(entries: list[str]) -> str:
+        """One JSON array per frame instead of one JSON object per region."""
+        merged: list[Any] = []
+        for entry in entries:
+            text = str(entry or "").strip()
+            if not text:
+                continue
+            try:
+                merged.append(json.loads(text))
+            except Exception:  # noqa: BLE001 - non-JSON log stays readable
+                merged.append({"log": text})
+        return json.dumps(merged, ensure_ascii=False)
+
+
+def _prepare_edit_request(
+    provider: ProviderConfig,
+    prompt: str,
+    image_png: bytes,
+    mask_png: bytes | None,
+    params: dict[str, Any],
+    image_summary: dict[str, Any],
+):
+    """Dispatch one masked edit to the family that owns the provider's protocol."""
+    protocol = provider.api_protocol
+    if protocol == PROTOCOL_GEMINI:
+        return api_gemini.prepare_image_request(
+            provider,
+            operation="edit",
+            prompt=prompt,
+            images=[image_png],
+            mask=mask_png,
+            params=params,
+            image_summary=image_summary,
+        )
+    if protocol == PROTOCOL_OPENAI_IMAGES:
+        return api_openai.prepare_image_request(
+            provider,
+            operation="edit",
+            prompt=prompt,
+            images=[image_png],
+            mask=mask_png,
+            params=params,
+            image_summary=image_summary,
+        )
+    if protocol == PROTOCOL_GROK:
+        return api_grok.prepare_image_request(
+            provider,
+            operation="edit",
+            prompt=prompt,
+            images=[image_png],
+            mask=mask_png,
+            params=params,
+            image_summary=image_summary,
+        )
+    return api_qwen.prepare_image_request(
+        provider,
+        operation="edit",
+        prompt=prompt,
+        images=[image_png],
+        mask=mask_png,
+        params=params,
+        image_summary=image_summary,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Text (LLM) nodes
 # ---------------------------------------------------------------------------
 class _ChatCallNode(_BaseCallNode):
@@ -982,31 +1673,119 @@ class CustomEndpointGeminiFiles(_FileLoader):
 
 
 class CustomEndpointBatchImages:
-    """Concatenate several IMAGE inputs into one batch (up to 4 inputs)."""
+    """Merge several IMAGE inputs into one batch, and hand back the raw list.
+
+    ``images`` is a single ``[N,H,W,3]`` tensor.  A tensor batch has exactly one
+    canvas, so frames of other sizes are fitted into it **with their aspect
+    ratio intact** (``fit``): the old implementation resized every frame to the
+    first frame's width/height, which squashed squeezed 16:9 into 1:1.
+
+    ``image_list`` is the plain python list of the same frames at their native
+    sizes - ComfyUI carries those fine (each list item is its own tensor, and a
+    downstream node simply runs once per item).  Use it when the exact pixels
+    matter; use ``images`` when one call has to carry several references.
+    """
 
     @classmethod
     def INPUT_TYPES(cls):
         return {
-            "required": {"image_1": ("IMAGE",)},
-            "optional": {f"image_{index}": ("IMAGE",) for index in range(2, 5)},
+            "required": {
+                "image_1": ("IMAGE", {"tooltip": "第 1 张。"}),
+                "size_mode": W.plain_combo(
+                    SIZE_MODES,
+                    SIZE_MODE_MAX,
+                    tooltip=(
+                        "画布尺寸：max size = 各图最大宽×最大高，谁都不会被缩小（默认）；"
+                        "first image = 第一张（旧行为）；manual = 用下面的 width/height（0 = 该边取最大）。"
+                    ),
+                ),
+                "fit": W.plain_combo(
+                    FIT_MODES,
+                    FIT_CONTAIN,
+                    tooltip=(
+                        "尺寸不一致时怎么放进画布：contain = 等比缩放 + 留边（默认，不畸变、不裁切）；"
+                        "cover = 等比放大铺满 + 裁掉溢出；stretch = 直接拉伸（旧行为，会把图拉畸形）。"
+                    ),
+                ),
+                "position": W.plain_combo(
+                    POSITIONS, POS_CENTER, tooltip="留边 / 裁切时画面贴在画布的哪一边。"
+                ),
+                "pad_color": W.plain_combo(
+                    PAD_COLOR_NAMES, "black", tooltip="contain 留边的填充色。"
+                ),
+                "size_multiple": (
+                    "INT",
+                    {
+                        "default": 1,
+                        "min": 1,
+                        "max": 512,
+                        "step": 1,
+                        "tooltip": "把画布宽高向上取整到该倍数（8 / 16 / 64 常用于尺寸对齐）。",
+                    },
+                ),
+                "width": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 8192,
+                        "step": 1,
+                        "tooltip": "固定画布宽（0 = 自动）。",
+                    },
+                ),
+                "height": (
+                    "INT",
+                    {
+                        "default": 0,
+                        "min": 0,
+                        "max": 8192,
+                        "step": 1,
+                        "tooltip": "固定画布高（0 = 自动）。",
+                    },
+                ),
+            },
+            "optional": {
+                f"image_{index}": ("IMAGE", {"tooltip": "可选，按顺序拼在后面。"})
+                for index in range(2, 5)
+            },
         }
 
-    RETURN_TYPES = ("IMAGE",)
-    RETURN_NAMES = ("images",)
+    RETURN_TYPES = ("IMAGE", "IMAGE")
+    RETURN_NAMES = ("images", "image_list")
+    OUTPUT_IS_LIST = (False, True)
     FUNCTION = "merge"
     CATEGORY = CATEGORY_AUX
 
-    def merge(self, image_1, **kwargs):
-        tensors = []
-        for name in REFERENCE_SLOTS[:4]:
-            value = image_1 if name == "image_1" else kwargs.get(name)
-            if value is None:
-                continue
-            for index in range(frame_count(value)):
-                tensors.append(value[index : index + 1])
-        if not tensors:
-            return (one_pixel_image(),)
-        return (stack_images(tensors),)
+    def merge(
+        self,
+        image_1,
+        image_2=None,
+        image_3=None,
+        image_4=None,
+        size_mode=SIZE_MODE_MAX,
+        fit=FIT_CONTAIN,
+        position=POS_CENTER,
+        pad_color="black",
+        size_multiple=1,
+        width=0,
+        height=0,
+    ):
+        frames: list[Any] = []
+        for value in (image_1, image_2, image_3, image_4):
+            frames.extend(iter_frames(value))
+        if not frames:
+            return (one_pixel_image(), [one_pixel_image()])
+        merged = stack_images(
+            frames,
+            size_mode=size_mode,
+            width=width,
+            height=height,
+            fit=fit,
+            position=position,
+            pad_color=pad_color,
+            multiple=size_multiple,
+        )
+        return (merged, frames)
 
 
 class CustomEndpointPromptList:
@@ -1045,6 +1824,9 @@ NODE_CLASS_MAPPINGS = {
     "CustomEndpointGPTImage": CustomEndpointGPTImage,
     "CustomEndpointGeminiImage": CustomEndpointGeminiImage,
     "CustomEndpointGrokImage": CustomEndpointGrokImage,
+    "CustomEndpointQwenImage": CustomEndpointQwenImage,
+    "CustomEndpointQwenImageEdit": CustomEndpointQwenImageEdit,
+    "CustomEndpointAPIDetailer": CustomEndpointAPIDetailer,
     "CustomEndpointGPTChat": CustomEndpointGPTChat,
     "CustomEndpointGeminiChat": CustomEndpointGeminiChat,
     "CustomEndpointGrokChat": CustomEndpointGrokChat,
@@ -1059,6 +1841,9 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "CustomEndpointGPTImage": "自定义端点 · GPT 图像",
     "CustomEndpointGeminiImage": "自定义端点 · Gemini 图像",
     "CustomEndpointGrokImage": "自定义端点 · Grok 图像",
+    "CustomEndpointQwenImage": "自定义端点 · Qwen 图像",
+    "CustomEndpointQwenImageEdit": "自定义端点 · Qwen 图像编辑",
+    "CustomEndpointAPIDetailer": "自定义端点 · API 局部重绘",
     "CustomEndpointGPTChat": "自定义端点 · GPT 对话",
     "CustomEndpointGeminiChat": "自定义端点 · Gemini 对话",
     "CustomEndpointGrokChat": "自定义端点 · Grok 对话",

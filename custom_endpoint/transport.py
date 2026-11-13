@@ -19,6 +19,15 @@ from .errors import EndpointError
 
 DEFAULT_USER_AGENT = "ComfyUI-Custom-Endpoint-Nodes/1.0"
 RETRY_STATUSES = frozenset({408, 409, 425, 429, 500, 502, 503, 504, 522, 524})
+# Some providers answer a *validation* error with HTTP 500 (relays forwarding
+# DashScope's "invalid_request", for example).  Retrying that cannot succeed
+# and only burns the caller's timeout, so it is excluded from the retry set.
+_NON_RETRYABLE_BODY_MARKERS = ('"invalid_request"', '"invalidparameter"', '"invalid_parameter"')
+
+
+def looks_like_validation_failure(response: "HttpResponse") -> bool:
+    text = response.text[:2000].lower()
+    return any(marker in text for marker in _NON_RETRYABLE_BODY_MARKERS)
 
 
 @dataclass
@@ -180,6 +189,7 @@ class HttpClient:
                 response.status in RETRY_STATUSES
                 and attempt < attempts
                 and response.status != 400
+                and not looks_like_validation_failure(response)
             ):
                 self._sleep(backoff ** (attempt - 1))
                 continue
