@@ -2,13 +2,27 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+*.egg-info/
+build/
+dist/
 
 # Local scratch
 input/
 output/
 *.log
+scratch/
 
-# Editors
+# Editors / OS
 .vscode/
 .idea/
 *.swp
+*.orig
+.DS_Store
+Thumbs.db
+
+# Virtualenvs
+.venv/
+venv/

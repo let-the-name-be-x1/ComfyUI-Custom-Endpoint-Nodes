@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "custom-endpoint-nodes"
-version = "0.1.0"
-description = "ComfyUI nodes that call GPT / Gemini / Grok models through a user-supplied API endpoint"
+version = "0.5.1"
+description = "ComfyUI nodes that call GPT / Gemini / Grok / Qwen image and text models through a user-supplied API endpoint (official API, relay or private proxy)."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
@@ -15,10 +15,10 @@ license = { file = "LICENSE" }
 dependencies = []
 
 [project.urls]
-Repository = "https://github.com/example/ComfyUI-Custom-Endpoint-Nodes"
+Repository = "https://github.com/let-the-name-be-x1/ComfyUI-Custom-Endpoint-Nodes"
+"Bug Tracker" = "https://github.com/let-the-name-be-x1/ComfyUI-Custom-Endpoint-Nodes/issues"
 
 [tool.comfy]
-PublisherId = "example"
+PublisherId = "let-the-name-be-x1"
 DisplayName = "Custom Endpoint API Nodes"
-Icon = ""
 web = "custom_endpoint/web"
