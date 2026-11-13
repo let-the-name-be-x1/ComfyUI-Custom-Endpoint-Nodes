@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "custom-endpoint-nodes"
-version = "0.5.1"
+version = "0.5.2"
 description = "ComfyUI nodes that call GPT / Gemini / Grok / Qwen image and text models through a user-supplied API endpoint (official API, relay or private proxy)."
 readme = "README.md"
 requires-python = ">=3.10"

@@ -627,6 +627,7 @@ cd "<ComfyUI>"
 
 | 日期 | 变更 |
 |---|---|
+| 2026-11-13 | **0.5.2：示例工作流改用 ASCII 文件名**（`basic_gpt_image.json` / `batch_gpt_gemini.json` / `gemini_inpaint.json`）。原因：`comfy node publish` 用 `git ls-files` + 本地 locale 解码打包，中文文件名在 GBK 系统上要么被跳过（默认 `core.quotepath=true`），要么让打包直接 `UnicodeDecodeError`（设成 `false` 时），两种情况都会让 Registry 包里缺文件；改用 ASCII 后与 locale 无关。同时 `.gitignore` 忽略打包产物 `node.zip` |
 | 2026-11-13 | **公开发布准备**：示例工作流换成三份真实在用的图（`基础示例工作流（GPT）`、`批量API绘图（gemini-GPT二采）`、`gemini局部修复`），删除生成器 `tools/make_examples.py`，`test_example_workflows.py` 改为按真实导出格式校验（seed 控制值、widget 输入标记、连线类型、第三方节点放行、调用节点必须连 provider）；README 重写为面向读者的版本（徽章 / 目录 / mermaid / FAQ）；LICENSE 署名 `let-the-name-be-x1`；`pyproject.toml` 填仓库地址与 PublisherId，新增 `.gitattributes`；测试 227 → 230 项；版本仍 0.5.1 |
 | 2026-11 | **批量拼接不再畸变**：`CustomEndpointBatchImages` 改成两路输出 —— `images`（统一画布的张量批次：默认 `max size` + `contain` 等比留边，可切 `cover`/`stretch`，另有 `position`/`pad_color`/`size_multiple`/手动 `width`/`height`）与 `image_list`（`OUTPUT_IS_LIST`，原尺寸直通）；`images.py` 新增画布几何层（`resolve_canvas` / `fit_to_canvas`），`stack_images` 默认不再拉伸（provider 返回多图同源问题一并修掉）；`merge` 改走 `iter_frames`（补上通道/量纲归一化）；测试 215 → 227 项；版本 0.5.0 → 0.5.1 |
 | 2026-11 | **局部重绘定版**：`paste_area` 新增并默认 `crop box`（整块裁剪贴回、羽化落在矩形框四边，替代"只贴遮罩"导致的接缝环）；`mask_guide` 默认改 `none`；引导标记外推到 `feather+3` px 之外（修掉"黄环被贴回"）；新增第 5 路输出 `cropped`（每块模型原图）；测试 210 → 215 项；版本 0.4.0 → 0.5.0 |
@@ -657,6 +658,8 @@ git push -u origin master
 - [ ] `README.md` 的节点数、测试数、示例清单与代码一致（本文件第 1 章的快速事实同步）。
 - [ ] 全套 `pytest -q` 绿（230 项）。
 - [ ] 示例工作流里没有真实端点 / 密钥 / 本地绝对路径——`test_example_workflows.py` 会拦。
+- [ ] 示例工作流文件名保持 **ASCII**：`comfy node publish` 用 `git ls-files` + 本地 locale 打包，
+  中文名在 GBK 系统上会被跳过或让打包崩溃（详见第 13 章 0.5.2 那条）。
 - [ ] `LICENSE` 的年份与署名正确。
 - [ ] 代码与文档里没有调试 `print`、没有本机绝对路径。
 

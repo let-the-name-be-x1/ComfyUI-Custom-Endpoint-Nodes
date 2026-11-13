@@ -155,9 +155,9 @@ flowchart LR
 
 | 文件 | 演示什么 | 用到的第三方节点 |
 |---|---|---|
-| `基础示例工作流（GPT）.json` | 提供商 + GPT 图像 + 两张参考图；`request_log` / `response_log` 落盘并预览 | `StringConcatenate`、pysssss 的 `SaveText` / `ShowText` |
-| `批量API绘图（gemini-GPT二采）.json` | 提示词批量切分 → 并发调用；GPT 一采 + Gemini 二采；`Image Comparer` 对比结果 | `CR Split String` / `CR String To Combo`、`easy promptLine`、pysssss、rgthree、ComfyMath |
-| `gemini局部修复.json` | `SAM3_Detect` 自动出遮罩 → API 局部重绘（Gemini）→ 回存；每块原图走 `cropped` 输出 | SAM3 检测节点、pysssss |
+| `basic_gpt_image.json` | 提供商 + GPT 图像 + 两张参考图；`request_log` / `response_log` 落盘并预览 | `StringConcatenate`、pysssss 的 `SaveText` / `ShowText` |
+| `batch_gpt_gemini.json` | 提示词批量切分 → 并发调用；GPT 一采 + Gemini 二采；`Image Comparer` 对比结果 | `CR Split String` / `CR String To Combo`、`easy promptLine`、pysssss、rgthree、ComfyMath |
+| `gemini_inpaint.json` | `SAM3_Detect` 自动出遮罩 → API 局部重绘（Gemini）→ 回存；每块原图走 `cropped` 输出 | SAM3 检测节点、pysssss |
 
 > 这三份工作流是作者日常实际使用的图，所以带了不少辅助节点。缺哪个包，对应节点在 ComfyUI 里
 > 会标红，但**删掉它们不影响本包节点的用法**——最小可用图就是上面那张三节点流程图。
