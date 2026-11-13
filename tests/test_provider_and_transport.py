@@ -46,8 +46,44 @@ def test_infer_protocol_from_model_name():
     assert P.infer_protocol("Nano Banana 2 LitE") == P.PROTOCOL_GEMINI
     assert P.infer_protocol("grok-imagine-image-2.0") == P.PROTOCOL_GROK
     assert P.infer_protocol("grok-4") == P.PROTOCOL_GROK
+    assert P.infer_protocol("qwen-image-3.0-pro") == P.PROTOCOL_QWEN
+    assert P.infer_protocol("Qwen-Image-3.0") == P.PROTOCOL_QWEN
+    assert P.infer_protocol("qwen3-max") == P.PROTOCOL_OPENAI_CHAT
     assert P.infer_protocol("gpt-5.5") == P.PROTOCOL_OPENAI_CHAT
     assert P.infer_protocol("") == P.PROTOCOL_OPENAI_CHAT
+
+
+def test_qwen_auto_inference_depends_on_the_host():
+    """DashScope serves the native path; a relay almost never does."""
+    assert P.infer_protocol("qwen-image-3.0", "https://dashscope.aliyuncs.com/api/v1") == P.PROTOCOL_QWEN
+    assert P.infer_protocol("qwen-image-3.0", "https://dashscope-intl.aliyuncs.com/api/v1") == P.PROTOCOL_QWEN
+    assert P.infer_protocol("qwen-image-3.0", "https://my-relay.example.com/v1") == P.PROTOCOL_QWEN_IMAGES
+    assert P.infer_protocol("qwen-image-3.0", "https://relay.example.com") == P.PROTOCOL_QWEN_IMAGES
+
+    relay = P.build_provider(
+        endpoint="https://my-relay.example.com/v1",
+        api_key="sk-x",
+        model="qwen-image-3.0-pro",
+        api_protocol="auto",
+    )
+    assert relay.api_protocol == P.PROTOCOL_QWEN_IMAGES
+    assert relay.family == P.FAMILY_QWEN
+
+
+def test_friendly_qwen_labels_map_to_api_ids():
+    assert P.normalize_model_id("Qwen Image 3 Pro", P.PROTOCOL_QWEN) == "qwen-image-3.0-pro"
+    assert P.normalize_model_id("qwen image 3", P.PROTOCOL_QWEN) == "qwen-image-3.0"
+    assert P.normalize_model_id("qwen-image-3.0", P.PROTOCOL_QWEN) == "qwen-image-3.0"
+    assert P.normalize_model_id("my-private-model", P.PROTOCOL_QWEN) == "my-private-model"
+
+
+def test_normalize_base_url_gives_qwen_a_v1_prefix():
+    assert P.normalize_base_url("https://dashscope.aliyuncs.com/api", "qwen") == (
+        "https://dashscope.aliyuncs.com/api/v1"
+    )
+    assert P.normalize_base_url("https://relay.example.com/proxy/qwen/api/v1", "qwen") == (
+        "https://relay.example.com/proxy/qwen/api/v1"
+    )
 
 
 def test_friendly_gemini_labels_map_to_api_ids():
@@ -164,6 +200,36 @@ def test_error_status_is_returned_not_raised():
     response = client.request("POST", "https://a.com/x", json_body={})
     assert response.ok is False
     assert response.status == 400
+
+
+def test_a_validation_error_behind_http_500_is_not_retried():
+    """Relays answer DashScope validation errors with 500 + code invalid_request."""
+    opener = QueueOpener(
+        json_response(
+            {
+                "error": {
+                    "message": "qwen-image-3.0 total pixels must be in [262144, 4194304], "
+                    "got 6553600 (2560x2560)",
+                    "type": "new_api_error",
+                    "code": "invalid_request",
+                }
+            },
+            status=500,
+        ),
+        json_response({"ok": True}),
+    )
+    client = transport.HttpClient(opener=opener, sleeper=lambda _: None)
+    response = client.request("POST", "https://a.com/x", json_body={}, retries=2)
+    assert response.status == 500
+    assert len(opener.calls) == 1, "a validation failure must not be retried"
+
+
+def test_a_transient_500_is_still_retried():
+    opener = QueueOpener(RawResponse(500, "upstream exploded"), json_response({"ok": True}))
+    client = transport.HttpClient(opener=opener, sleeper=lambda _: None)
+    response = client.request("POST", "https://a.com/x", json_body={}, retries=1)
+    assert response.ok
+    assert len(opener.calls) == 2
 
 
 def test_http_response_helpers():

@@ -13,7 +13,7 @@ if ROOT not in sys.path:
 import torch  # noqa: E402
 
 import ce_nodes as nodes  # noqa: E402
-from custom_endpoint import api_gemini, api_grok, api_openai, images, transport  # noqa: E402
+from custom_endpoint import api_gemini, api_grok, api_openai, api_qwen, images, transport  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -37,6 +37,21 @@ def image_tensor(batch: int = 1, height: int = 8, width: int = 8, value: float =
 
 def mask_tensor(batch: int = 1, height: int = 8, width: int = 8, value: float = 0.0):
     return torch.full((batch, height, width), float(value), dtype=torch.float32)
+
+
+def content_box(frame, pad: float = 0.0, tol: float = 1e-3):
+    """``(top, bottom, left, right)`` of the pixels that differ from the pad colour.
+
+    ``frame`` is an ``[H,W,3]`` tensor.  Returns ``None`` when everything is the
+    pad colour.  Used to prove that a frame was padded (aspect kept) rather than
+    stretched (content reaching the canvas border).
+    """
+    mask = (frame - float(pad)).abs().max(dim=-1).values > tol
+    rows = torch.nonzero(mask.any(dim=1)).flatten()
+    cols = torch.nonzero(mask.any(dim=0)).flatten()
+    if rows.numel() == 0 or cols.numel() == 0:
+        return None
+    return int(rows[0]), int(rows[-1]) + 1, int(cols[0]), int(cols[-1]) + 1
 
 
 # ---------------------------------------------------------------------------

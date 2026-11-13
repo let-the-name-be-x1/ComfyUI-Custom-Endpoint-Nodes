@@ -8,7 +8,7 @@ import pytest
 from PIL import Image
 
 from custom_endpoint import batch, images
-from conftest import image_tensor, mask_tensor, png_bytes
+from conftest import content_box, image_tensor, mask_tensor, png_bytes
 
 
 def test_png_roundtrip_shape_and_range():
@@ -58,6 +58,83 @@ def test_stack_images_aligns_mixed_sizes():
 
 def test_stack_images_empty_returns_placeholder():
     assert tuple(images.stack_images([]).shape) == (1, 1, 1, 3)
+
+
+# ---------------------------------------------------------------------------
+# canvas geometry: different sizes must never be stretched by default
+# ---------------------------------------------------------------------------
+def test_contain_keeps_the_aspect_ratio():
+    """A 4x8 landscape frame in an 8x8 canvas: padded top/bottom, never squashed."""
+    wide = image_tensor(1, 4, 8, 0.25)
+    stacked = images.stack_images([image_tensor(1, 8, 8, 0.75), wide])
+    assert tuple(stacked.shape) == (2, 8, 8, 3)
+    assert content_box(stacked[1], pad=0.0) == (2, 6, 0, 8)  # 4 rows tall, full width
+    assert float(stacked[1, 0].abs().max()) == 0.0  # padded rows are the pad colour
+
+
+def test_contain_pads_when_the_canvas_is_wider():
+    tall = image_tensor(1, 8, 4, 0.25)
+    stacked = images.stack_images([image_tensor(1, 8, 8, 0.75), tall])
+    assert content_box(stacked[1], pad=0.0) == (0, 8, 2, 6)
+
+
+def test_stretch_is_opt_in_and_still_squashes():
+    wide = image_tensor(1, 4, 8, 0.25)
+    stacked = images.stack_images(
+        [image_tensor(1, 8, 8, 0.75), wide], fit=images.FIT_STRETCH
+    )
+    # the whole canvas is content -> the 2:1 frame was stretched to 1:1
+    assert content_box(stacked[1], pad=0.0) == (0, 8, 0, 8)
+
+
+def test_cover_crops_the_overflow_instead_of_padding():
+    wide = image_tensor(1, 4, 8, 0.25)
+    wide[:, :, 0:1] = 1.0  # marker on the left edge, cropped away by cover
+    stacked = images.stack_images(
+        [image_tensor(1, 8, 8, 0.75), wide], fit=images.FIT_COVER
+    )
+    assert content_box(stacked[1], pad=0.0) == (0, 8, 0, 8)  # no pad bars at all
+    assert float(stacked[1].min()) > 0.2  # the marker is gone -> cropping happened
+
+
+def test_pad_colour_and_position_are_honoured():
+    wide = image_tensor(1, 4, 8, 0.25)
+    stacked = images.stack_images(
+        [image_tensor(1, 8, 8, 0.75), wide], position=images.POS_TOP_LEFT, pad_color="white"
+    )
+    assert content_box(stacked[1], pad=1.0) == (0, 4, 0, 8)
+    assert float(stacked[1, 7].min()) == 1.0  # bottom rows are white
+
+
+def test_size_mode_first_and_manual():
+    frames = [image_tensor(1, 4, 8, 0.5), image_tensor(1, 8, 4, 0.5)]
+    first = images.stack_images(frames, size_mode=images.SIZE_MODE_FIRST)
+    assert tuple(first.shape) == (2, 4, 8, 3)
+    manual = images.stack_images(frames, size_mode=images.SIZE_MODE_MANUAL, width=10, height=6)
+    assert tuple(manual.shape) == (2, 6, 10, 3)
+    # width/height = 0 -> that side falls back to the biggest frame
+    half = images.stack_images(frames, size_mode=images.SIZE_MODE_MANUAL, height=12)
+    assert tuple(half.shape) == (2, 12, 8, 3)
+
+
+def test_size_multiple_rounds_the_canvas_up():
+    frames = [image_tensor(1, 4, 8, 0.5), image_tensor(1, 8, 4, 0.5)]
+    stacked = images.stack_images(frames, multiple=6)  # 8x8 canvas -> 12x12
+    assert tuple(stacked.shape) == (2, 12, 12, 3)
+
+
+def test_resolve_canvas_is_pure_geometry():
+    frames = [image_tensor(1, 4, 8), image_tensor(1, 8, 4)]
+    assert images.resolve_canvas(frames) == (8, 8)
+    assert images.resolve_canvas(frames, width=7) == (8, 7)  # explicit width wins
+    assert images.resolve_canvas(frames, multiple=16) == (16, 16)
+    assert images.resolve_canvas([], size_mode=images.SIZE_MODE_FIRST) == (1, 1)
+
+
+def test_stack_images_accepts_three_dimensional_frames():
+    frame = image_tensor(1, 4, 6)[0]  # [H,W,3]
+    stacked = images.stack_images([frame, frame])
+    assert tuple(stacked.shape) == (2, 4, 6, 3)
 
 
 def test_decode_rejects_non_images():

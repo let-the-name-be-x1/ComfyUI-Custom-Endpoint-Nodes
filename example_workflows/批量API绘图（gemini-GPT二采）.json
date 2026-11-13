@@ -1,0 +1,1869 @@
+{
+  "id": "5734c58d-12e4-4485-a735-2c4dc9842cf6",
+  "revision": 0,
+  "last_node_id": 55,
+  "last_link_id": 72,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "CustomEndpointGPTImage",
+      "pos": [
+        2672.8968026709354,
+        892.7823806507724
+      ],
+      "size": [
+        400,
+        540
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "provider",
+          "type": "CUSTOM_ENDPOINT_PROVIDER",
+          "link": 33
+        },
+        {
+          "label": "图像 1",
+          "name": "image_1",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 47
+        },
+        {
+          "label": "图像 2",
+          "name": "image_2",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "mask",
+          "shape": 7,
+          "type": "MASK",
+          "link": null
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": 48
+        },
+        {
+          "name": "custom_width",
+          "type": "INT",
+          "widget": {
+            "name": "custom_width"
+          },
+          "link": 54
+        },
+        {
+          "name": "custom_height",
+          "type": "INT",
+          "widget": {
+            "name": "custom_height"
+          },
+          "link": 55
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "shape": 6,
+          "type": "IMAGE",
+          "links": [
+            2,
+            70
+          ]
+        },
+        {
+          "name": "texts",
+          "shape": 6,
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "request_log",
+          "shape": 6,
+          "type": "STRING",
+          "links": [
+            26
+          ]
+        },
+        {
+          "name": "response_log",
+          "shape": 6,
+          "type": "STRING",
+          "links": [
+            28,
+            72
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CustomEndpointGPTImage"
+      },
+      "widgets_values": [
+        "",
+        "Custom",
+        1024,
+        1024,
+        "不发送",
+        "max",
+        "不发送",
+        -1,
+        "不发送",
+        "不发送",
+        1,
+        1894870938,
+        "randomize",
+        10
+      ],
+      "widgets_values_named": {
+        "prompt": "",
+        "size": "Custom",
+        "custom_width": 1024,
+        "custom_height": 1024,
+        "background": "不发送",
+        "quality": "max",
+        "output_format": "不发送",
+        "output_compression": -1,
+        "moderation": "不发送",
+        "response_format": "不发送",
+        "n": 1,
+        "seed": 1894870938,
+        "control_after_generate": "randomize",
+        "max_concurrency": 10
+      }
+    },
+    {
+      "id": 2,
+      "type": "CustomEndpointProvider",
+      "pos": [
+        2225.3858210365947,
+        657.4424724308979
+      ],
+      "size": [
+        400,
+        280
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "provider",
+          "type": "CUSTOM_ENDPOINT_PROVIDER",
+          "links": [
+            33
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CustomEndpointProvider"
+      },
+      "widgets_values": [
+        "",
+        "",
+        "gpt-image-2.5-sunburst",
+        "auto",
+        false,
+        300,
+        2,
+        "",
+        "provider"
+      ],
+      "widgets_values_named": {
+        "endpoint": "",
+        "api_key": "",
+        "model": "gpt-image-2.5-sunburst",
+        "api_protocol": "auto",
+        "encrypt_export": false,
+        "timeout_sec": 300,
+        "retries": 2,
+        "extra_headers": "",
+        "provider_name": "provider"
+      }
+    },
+    {
+      "id": 3,
+      "type": "SaveImage",
+      "pos": [
+        3154.068044710488,
+        893.4394633189507
+      ],
+      "size": [
+        270,
+        270
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 2
+        },
+        {
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": 56
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.38.1",
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "ComfyUI"
+      ],
+      "widgets_values_named": {
+        "filename_prefix": "ComfyUI"
+      }
+    },
+    {
+      "id": 10,
+      "type": "CR Split String",
+      "pos": [
+        28.39238995350376,
+        1180.5419918788339
+      ],
+      "size": [
+        270,
+        162
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "widget": {
+            "name": "text"
+          },
+          "link": 13
+        }
+      ],
+      "outputs": [
+        {
+          "name": "string_1",
+          "type": "*",
+          "links": [
+            43,
+            58
+          ]
+        },
+        {
+          "name": "string_2",
+          "type": "*",
+          "links": [
+            37,
+            49
+          ]
+        },
+        {
+          "name": "string_3",
+          "type": "*",
+          "links": [
+            36
+          ]
+        },
+        {
+          "name": "string_4",
+          "type": "*",
+          "links": []
+        },
+        {
+          "name": "show_help",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Comfyroll_CustomNodes",
+        "ver": "d78b780ae43fcf8c6b7c6505e6ffb4584281ceca",
+        "Node name for S&R": "CR Split String"
+      },
+      "widgets_values": [
+        "text",
+        "@@"
+      ],
+      "widgets_values_named": {
+        "text": "text",
+        "delimiter": "@@"
+      }
+    },
+    {
+      "id": 11,
+      "type": "easy promptLine",
+      "pos": [
+        -601.4929420337683,
+        1236.1539693113627
+      ],
+      "size": [
+        555.1692810674382,
+        636.2029098526825
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "shape": 6,
+          "type": "STRING",
+          "links": [
+            13
+          ]
+        },
+        {
+          "name": "COMBO",
+          "shape": 6,
+          "type": "COMBO",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-easy-use",
+        "ver": "1.3.6",
+        "Node name for S&R": "easy promptLine"
+      },
+      "widgets_values": [
+        "荷塘月色唐制襦裙@@二次元插画，夏夜的古典中式荷花池畔，水面上漂浮着盛开的粉色荷花与散发暖光的河灯，点点萤火虫在夜空中飞舞，背景是朦胧的江南水乡亭台楼阁与一轮皎洁明月。画面主体是珊瑚宫心海（sangonomia kokomi），她淡粉色的长发垂至腰际，发梢渐变为浅蓝色，头顶盘成精致的古典发髻并插着摇曳的珍珠步摇，眼眸由上方的深蓝色渐变为下方的浅粉色，眼睛没有瞳孔，这让她的目光清澈而温柔。她面带恬静的微笑，身材纤细柔美，身穿华丽的唐制齐胸襦裙，衣料采用轻盈的浅蓝色与淡粉色渐变真丝欧根纱，裙摆绣有闪烁的银丝锦鲤与海浪暗纹，双臂环绕着飘逸的浅青色披帛，正微微俯身，双手捧着一盏荷花造型的花灯准备放入水中。中景镜头，侧面三分之二视角，柔和的月光与花灯的暖光交织照亮她的脸庞与半透明的纱衣。@@2:3\n竹窗听雨宋制褙子@@二次元国风插画，雅致的古典中式书房内，透过圆形的雕花木窗可以看到窗外淅淅沥沥的春雨和翠绿的竹林，室内摆放着紫檀木书案、青花瓷茶具、微缩假山盆景以及堆叠的古代兵法竹简与线装书。画面主体是珊瑚宫心海（sangonomia kokomi），她淡粉色的长发垂至腰际，发梢渐变为浅蓝色，用一根温润的白玉簪挽起温婉的半披发，眼眸由上方的深蓝色渐变为下方的浅粉色，眼睛没有瞳孔，这让她的目光清澈而温柔。她神情专注而宁静，体态端庄优雅，身穿清雅的宋制汉服，内搭白色抹胸与浅粉色百迭裙，外披一件半透明的浅蓝色刺绣长褙子，领口边缘绣着精致的贝壳与水波纹样，她端坐在书案前，一手轻托腮帮，另一只手握着一卷展开的兵法竹简仔细阅读。近景构图，平视镜头，窗外射入柔和的自然漫射光，营造出静谧的书香氛围。@@16:9\n高山流水魏晋风度@@唯美二次元厚涂插画，云雾缭绕的仙侠风高山流水之间，一座建在清澈碧水之上的木质水榭凉亭，远处是倾泻而下的壮观瀑布，周围飘落着洁白的花瓣，水面上泛起层层涟漪。画面主体是珊瑚宫心海（sangonomia kokomi），她淡粉色的长发垂至腰际，发梢渐变为浅蓝色，长发随山风轻轻飘动，额间点缀着水滴状的珍珠花钿，眼眸由上方的深蓝色渐变为下方的浅粉色，眼睛没有瞳孔，这让她的目光清澈而温柔。她表情淡然若仙，身姿轻盈苗条，身穿宽袍大袖的魏晋风交领汉服，层叠的衣袂由纯白渐变为深海蓝，衣袖宽大垂落地面，呈现出极强的飘逸感，她盘腿坐于亭中的竹席之上，修长的十指正轻抚一张古朴的焦尾古琴。广角远景镜头，采用对称式构图将人物置于画面中心，水汽与薄雾增加画面的空灵纵深感。@@21:9\n瑞雪寻梅明制袄裙@@二次元插画，冬日落雪的古典园林红墙外，几枝傲雪盛开的红梅斜伸入画面，漫天飞舞着洁白的雪花，地面与远处的青瓦屋顶上积着厚厚的白雪。画面主体是珊瑚宫心海（sangonomia kokomi），她淡粉色的长发垂至腰际，发梢渐变为浅蓝色，发型为可爱的古风双发髻并垂下长发，装饰着毛茸茸的白色绒球发饰与珍珠流苏，眼眸由上方的深蓝色渐变为下方的浅粉色，眼睛没有瞳孔，这让她的目光清澈而温柔。她脸颊微红，露出欣喜而温柔的浅笑，身材娇小玲珑，身穿端庄保暖的明制立领琵琶袖袄裙，上袄为织金淡粉色缎面，领口和袖口镶嵌着一圈蓬松的白色狐狸毛领，下裙为织金海浪纹的深蓝色马面裙，外罩一件白色羽纱斗篷，手中撑着一把绘有水墨游鱼图案的油纸伞，抬起一只手轻轻接住飘落的雪花。竖屏七分身构图，微仰拍视角，红梅与白雪同人物的粉蓝配色形成和谐的冷暖对比。@@3:4\n沧海月明水舞霓裳@@绚丽二次元幻想插画，奇幻的夜间镜面浅海之上，巨大的满月低垂在海平线上，璀璨星河倒映在如镜般的水面，水下隐约可见发光的珊瑚与游动的幻影水母，飞溅的水珠在空中化作晶莹的珍珠。画面主体是珊瑚宫心海（sangonomia kokomi），她淡粉色的长发垂至腰际，发梢渐变为浅蓝色，发丝在空中灵动飞扬，头戴华丽的珊瑚与珍珠编织的古风发冠，眼眸由上方的深蓝色渐变为下方的浅粉色，眼睛没有瞳孔，这让她的目光清澈而温柔。她神态圣洁而灵动，体态曼妙修长，身穿融合了古典仙女元素的改良齐腰汉服羽衣，胸前与腰间点缀着璀璨的夜明珠与贝壳流苏，半透明的渐变蓝粉色纱裙如鱼尾般散开，长长的荧光水蓝色飘带在身周环绕飞舞，她赤着双足在水面上翩翩起舞，足尖轻点水面激起一圈发光的涟漪，双手在空中划出优美的弧度。动态全身构图，斜角镜头增强舞蹈的律动感，逆光月光勾勒出人物唯美的轮廓光。@@9:16",
+        0,
+        1000,
+        true,
+        ""
+      ],
+      "widgets_values_named": {
+        "prompt": "荷塘月色唐制襦裙@@二次元插画，夏夜的古典中式荷花池畔，水面上漂浮着盛开的粉色荷花与散发暖光的河灯，点点萤火虫在夜空中飞舞，背景是朦胧的江南水乡亭台楼阁与一轮皎洁明月。画面主体是珊瑚宫心海（sangonomia kokomi），她淡粉色的长发垂至腰际，发梢渐变为浅蓝色，头顶盘成精致的古典发髻并插着摇曳的珍珠步摇，眼眸由上方的深蓝色渐变为下方的浅粉色，眼睛没有瞳孔，这让她的目光清澈而温柔。她面带恬静的微笑，身材纤细柔美，身穿华丽的唐制齐胸襦裙，衣料采用轻盈的浅蓝色与淡粉色渐变真丝欧根纱，裙摆绣有闪烁的银丝锦鲤与海浪暗纹，双臂环绕着飘逸的浅青色披帛，正微微俯身，双手捧着一盏荷花造型的花灯准备放入水中。中景镜头，侧面三分之二视角，柔和的月光与花灯的暖光交织照亮她的脸庞与半透明的纱衣。@@2:3\n竹窗听雨宋制褙子@@二次元国风插画，雅致的古典中式书房内，透过圆形的雕花木窗可以看到窗外淅淅沥沥的春雨和翠绿的竹林，室内摆放着紫檀木书案、青花瓷茶具、微缩假山盆景以及堆叠的古代兵法竹简与线装书。画面主体是珊瑚宫心海（sangonomia kokomi），她淡粉色的长发垂至腰际，发梢渐变为浅蓝色，用一根温润的白玉簪挽起温婉的半披发，眼眸由上方的深蓝色渐变为下方的浅粉色，眼睛没有瞳孔，这让她的目光清澈而温柔。她神情专注而宁静，体态端庄优雅，身穿清雅的宋制汉服，内搭白色抹胸与浅粉色百迭裙，外披一件半透明的浅蓝色刺绣长褙子，领口边缘绣着精致的贝壳与水波纹样，她端坐在书案前，一手轻托腮帮，另一只手握着一卷展开的兵法竹简仔细阅读。近景构图，平视镜头，窗外射入柔和的自然漫射光，营造出静谧的书香氛围。@@16:9\n高山流水魏晋风度@@唯美二次元厚涂插画，云雾缭绕的仙侠风高山流水之间，一座建在清澈碧水之上的木质水榭凉亭，远处是倾泻而下的壮观瀑布，周围飘落着洁白的花瓣，水面上泛起层层涟漪。画面主体是珊瑚宫心海（sangonomia kokomi），她淡粉色的长发垂至腰际，发梢渐变为浅蓝色，长发随山风轻轻飘动，额间点缀着水滴状的珍珠花钿，眼眸由上方的深蓝色渐变为下方的浅粉色，眼睛没有瞳孔，这让她的目光清澈而温柔。她表情淡然若仙，身姿轻盈苗条，身穿宽袍大袖的魏晋风交领汉服，层叠的衣袂由纯白渐变为深海蓝，衣袖宽大垂落地面，呈现出极强的飘逸感，她盘腿坐于亭中的竹席之上，修长的十指正轻抚一张古朴的焦尾古琴。广角远景镜头，采用对称式构图将人物置于画面中心，水汽与薄雾增加画面的空灵纵深感。@@21:9\n瑞雪寻梅明制袄裙@@二次元插画，冬日落雪的古典园林红墙外，几枝傲雪盛开的红梅斜伸入画面，漫天飞舞着洁白的雪花，地面与远处的青瓦屋顶上积着厚厚的白雪。画面主体是珊瑚宫心海（sangonomia kokomi），她淡粉色的长发垂至腰际，发梢渐变为浅蓝色，发型为可爱的古风双发髻并垂下长发，装饰着毛茸茸的白色绒球发饰与珍珠流苏，眼眸由上方的深蓝色渐变为下方的浅粉色，眼睛没有瞳孔，这让她的目光清澈而温柔。她脸颊微红，露出欣喜而温柔的浅笑，身材娇小玲珑，身穿端庄保暖的明制立领琵琶袖袄裙，上袄为织金淡粉色缎面，领口和袖口镶嵌着一圈蓬松的白色狐狸毛领，下裙为织金海浪纹的深蓝色马面裙，外罩一件白色羽纱斗篷，手中撑着一把绘有水墨游鱼图案的油纸伞，抬起一只手轻轻接住飘落的雪花。竖屏七分身构图，微仰拍视角，红梅与白雪同人物的粉蓝配色形成和谐的冷暖对比。@@3:4\n沧海月明水舞霓裳@@绚丽二次元幻想插画，奇幻的夜间镜面浅海之上，巨大的满月低垂在海平线上，璀璨星河倒映在如镜般的水面，水下隐约可见发光的珊瑚与游动的幻影水母，飞溅的水珠在空中化作晶莹的珍珠。画面主体是珊瑚宫心海（sangonomia kokomi），她淡粉色的长发垂至腰际，发梢渐变为浅蓝色，发丝在空中灵动飞扬，头戴华丽的珊瑚与珍珠编织的古风发冠，眼眸由上方的深蓝色渐变为下方的浅粉色，眼睛没有瞳孔，这让她的目光清澈而温柔。她神态圣洁而灵动，体态曼妙修长，身穿融合了古典仙女元素的改良齐腰汉服羽衣，胸前与腰间点缀着璀璨的夜明珠与贝壳流苏，半透明的渐变蓝粉色纱裙如鱼尾般散开，长长的荧光水蓝色飘带在身周环绕飞舞，她赤着双足在水面上翩翩起舞，足尖轻点水面激起一圈发光的涟漪，双手在空中划出优美的弧度。动态全身构图，斜角镜头增强舞蹈的律动感，逆光月光勾勒出人物唯美的轮廓光。@@9:16",
+        "start_index": 0,
+        "max_rows": 1000,
+        "remove_empty_lines": true,
+        "get values from COMBO link": ""
+      },
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 20,
+      "type": "SaveText|pysssss",
+      "pos": [
+        3428.3084839342323,
+        1242.9190426475573
+      ],
+      "size": [
+        270,
+        130
+      ],
+      "flags": {},
+      "order": 24,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 27
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-custom-scripts",
+        "ver": "609f3afaa74b2f88ef9ce8d939626065e3247469",
+        "Node name for S&R": "SaveText|pysssss"
+      },
+      "widgets_values": [
+        "output",
+        "GPT/请求体日志.txt",
+        "append",
+        true
+      ],
+      "widgets_values_named": {
+        "root_dir": "output",
+        "file": "GPT/请求体日志.txt",
+        "append": "append",
+        "insert": true
+      }
+    },
+    {
+      "id": 21,
+      "type": "SaveText|pysssss",
+      "pos": [
+        3411.383628228747,
+        1441.4009196935033
+      ],
+      "size": [
+        288.12347205268725,
+        130
+      ],
+      "flags": {},
+      "order": 25,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 29
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-custom-scripts",
+        "ver": "609f3afaa74b2f88ef9ce8d939626065e3247469",
+        "Node name for S&R": "SaveText|pysssss"
+      },
+      "widgets_values": [
+        "output",
+        "GPT/返回体日志.txt",
+        "append",
+        true
+      ],
+      "widgets_values_named": {
+        "root_dir": "output",
+        "file": "GPT/返回体日志.txt",
+        "append": "append",
+        "insert": true
+      }
+    },
+    {
+      "id": 22,
+      "type": "StringConcatenate",
+      "pos": [
+        3199.3046418483427,
+        1216.631349645046
+      ],
+      "size": [
+        210,
+        166
+      ],
+      "flags": {},
+      "order": 21,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "string_a",
+          "type": "STRING",
+          "widget": {
+            "name": "string_a"
+          },
+          "link": 26
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            27
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.38.1",
+        "Node name for S&R": "StringConcatenate"
+      },
+      "widgets_values": [
+        "",
+        "\n",
+        ""
+      ],
+      "widgets_values_named": {
+        "string_a": "",
+        "string_b": "\n",
+        "delimiter": ""
+      }
+    },
+    {
+      "id": 23,
+      "type": "StringConcatenate",
+      "pos": [
+        3159.59089538904,
+        1441.0275127441032
+      ],
+      "size": [
+        210,
+        166
+      ],
+      "flags": {},
+      "order": 22,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "string_a",
+          "type": "STRING",
+          "widget": {
+            "name": "string_a"
+          },
+          "link": 28
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            29
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.38.1",
+        "Node name for S&R": "StringConcatenate"
+      },
+      "widgets_values": [
+        "",
+        "\n",
+        ""
+      ],
+      "widgets_values_named": {
+        "string_a": "",
+        "string_b": "\n",
+        "delimiter": ""
+      }
+    },
+    {
+      "id": 29,
+      "type": "CustomEndpointGeminiImage",
+      "pos": [
+        555.743161806741,
+        1172.3823050999865
+      ],
+      "size": [
+        400,
+        546
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "provider",
+          "type": "CUSTOM_ENDPOINT_PROVIDER",
+          "link": 38
+        },
+        {
+          "label": "图像 1",
+          "name": "image_1",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "files",
+          "shape": 7,
+          "type": "CUSTOM_ENDPOINT_FILES",
+          "link": null
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": 37
+        },
+        {
+          "name": "aspect_ratio",
+          "type": "COMBO",
+          "widget": {
+            "name": "aspect_ratio"
+          },
+          "link": 35
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "shape": 6,
+          "type": "IMAGE",
+          "links": [
+            41,
+            47,
+            50
+          ]
+        },
+        {
+          "name": "thought_images",
+          "shape": 6,
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "name": "texts",
+          "shape": 6,
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "request_log",
+          "shape": 6,
+          "type": "STRING",
+          "links": [
+            44
+          ]
+        },
+        {
+          "name": "response_log",
+          "shape": 6,
+          "type": "STRING",
+          "links": [
+            45,
+            71
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CustomEndpointGeminiImage"
+      },
+      "widgets_values": [
+        "",
+        "auto",
+        "1K",
+        "不发送",
+        "IMAGE",
+        "不发送",
+        -1,
+        -1,
+        -1,
+        2000066296,
+        "randomize",
+        "You are an expert image-generation engine. You must ALWAYS produce an image.\nInterpret all user input—regardless of format, intent, or abstraction—as literal visual directives for image composition.\nIf a prompt is conversational or lacks specific visual details, you must creatively invent a concrete visual scenario that depicts the concept.\nPrioritize generating the visual representation above any text, formatting, or conversational requests.",
+        10
+      ],
+      "widgets_values_named": {
+        "prompt": "",
+        "aspect_ratio": "auto",
+        "resolution": "1K",
+        "thinking_level": "不发送",
+        "response_modalities": "IMAGE",
+        "mime_type": "不发送",
+        "compression_quality": -1,
+        "temperature": -1,
+        "top_p": -1,
+        "seed": 2000066296,
+        "control_after_generate": "randomize",
+        "system_prompt": "You are an expert image-generation engine. You must ALWAYS produce an image.\nInterpret all user input—regardless of format, intent, or abstraction—as literal visual directives for image composition.\nIf a prompt is conversational or lacks specific visual details, you must creatively invent a concrete visual scenario that depicts the concept.\nPrioritize generating the visual representation above any text, formatting, or conversational requests.",
+        "max_concurrency": 10
+      }
+    },
+    {
+      "id": 30,
+      "type": "CR String To Combo",
+      "pos": [
+        319.9394758819539,
+        1353.0590657945909
+      ],
+      "size": [
+        197.5162109375,
+        46
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 36
+        }
+      ],
+      "outputs": [
+        {
+          "name": "any",
+          "type": "*",
+          "links": [
+            35
+          ]
+        },
+        {
+          "name": "show_help",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI_Comfyroll_CustomNodes",
+        "ver": "d78b780ae43fcf8c6b7c6505e6ffb4584281ceca",
+        "Node name for S&R": "CR String To Combo"
+      }
+    },
+    {
+      "id": 31,
+      "type": "CustomEndpointProvider",
+      "pos": [
+        32.16006733329355,
+        824.3091677320274
+      ],
+      "size": [
+        400,
+        280
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "provider",
+          "type": "CUSTOM_ENDPOINT_PROVIDER",
+          "links": [
+            38
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CustomEndpointProvider"
+      },
+      "widgets_values": [
+        "",
+        "",
+        "gemini-nano-banana-2.1",
+        "auto",
+        false,
+        600,
+        2,
+        "",
+        "provider"
+      ],
+      "widgets_values_named": {
+        "endpoint": "",
+        "api_key": "",
+        "model": "gemini-nano-banana-2.1",
+        "api_protocol": "auto",
+        "encrypt_export": false,
+        "timeout_sec": 600,
+        "retries": 2,
+        "extra_headers": "",
+        "provider_name": "provider"
+      }
+    },
+    {
+      "id": 32,
+      "type": "SaveImage",
+      "pos": [
+        1263.5342520795123,
+        1244.64063758403
+      ],
+      "size": [
+        270,
+        270
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 41
+        },
+        {
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": 42
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            69
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.38.1",
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "ComfyUI"
+      ],
+      "widgets_values_named": {
+        "filename_prefix": "ComfyUI"
+      }
+    },
+    {
+      "id": 33,
+      "type": "StringConcatenate",
+      "pos": [
+        1046.5286930918694,
+        1594.167727781581
+      ],
+      "size": [
+        210,
+        166
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "string_a",
+          "type": "STRING",
+          "widget": {
+            "name": "string_a"
+          },
+          "link": 44
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            39
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.38.1",
+        "Node name for S&R": "StringConcatenate"
+      },
+      "widgets_values": [
+        "",
+        "\n",
+        ""
+      ],
+      "widgets_values_named": {
+        "string_a": "",
+        "string_b": "\n",
+        "delimiter": ""
+      }
+    },
+    {
+      "id": 34,
+      "type": "SaveText|pysssss",
+      "pos": [
+        1281.8777723664434,
+        1607.7649948170397
+      ],
+      "size": [
+        270,
+        130
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 39
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-custom-scripts",
+        "ver": "609f3afaa74b2f88ef9ce8d939626065e3247469",
+        "Node name for S&R": "SaveText|pysssss"
+      },
+      "widgets_values": [
+        "output",
+        "gemini/请求体日志.txt",
+        "append",
+        true
+      ],
+      "widgets_values_named": {
+        "root_dir": "output",
+        "file": "gemini/请求体日志.txt",
+        "append": "append",
+        "insert": true
+      }
+    },
+    {
+      "id": 36,
+      "type": "StringConcatenate",
+      "pos": [
+        1030.0131612914652,
+        1831.8000729871303
+      ],
+      "size": [
+        210,
+        166
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "string_a",
+          "type": "STRING",
+          "widget": {
+            "name": "string_a"
+          },
+          "link": 45
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            40
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.38.1",
+        "Node name for S&R": "StringConcatenate"
+      },
+      "widgets_values": [
+        "",
+        "\n",
+        ""
+      ],
+      "widgets_values_named": {
+        "string_a": "",
+        "string_b": "\n",
+        "delimiter": ""
+      }
+    },
+    {
+      "id": 37,
+      "type": "SaveText|pysssss",
+      "pos": [
+        1271.65347590102,
+        1849.9400181980243
+      ],
+      "size": [
+        288.12347205268725,
+        130
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 40
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-custom-scripts",
+        "ver": "609f3afaa74b2f88ef9ce8d939626065e3247469",
+        "Node name for S&R": "SaveText|pysssss"
+      },
+      "widgets_values": [
+        "output",
+        "gemini/返回体日志.txt",
+        "append",
+        true
+      ],
+      "widgets_values_named": {
+        "root_dir": "output",
+        "file": "gemini/返回体日志.txt",
+        "append": "append",
+        "insert": true
+      }
+    },
+    {
+      "id": 38,
+      "type": "StringConcatenate",
+      "pos": [
+        1019.6609386974776,
+        1313.517575049632
+      ],
+      "size": [
+        210,
+        166
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "string_b",
+          "type": "STRING",
+          "widget": {
+            "name": "string_b"
+          },
+          "link": 43
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            42
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.38.1",
+        "Node name for S&R": "StringConcatenate"
+      },
+      "widgets_values": [
+        "gemini/",
+        "",
+        ""
+      ],
+      "widgets_values_named": {
+        "string_a": "gemini/",
+        "string_b": "",
+        "delimiter": ""
+      }
+    },
+    {
+      "id": 39,
+      "type": "StringConcatenate",
+      "pos": [
+        2275.8363230796663,
+        963.5369375104981
+      ],
+      "size": [
+        282.18089603051203,
+        205.0360284577598
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "string_b",
+          "type": "STRING",
+          "widget": {
+            "name": "string_b"
+          },
+          "link": 49
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            48
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.38.1",
+        "Node name for S&R": "StringConcatenate"
+      },
+      "widgets_values": [
+        "高清放大这张图并添加丰富的细节，可以大幅改变细化画风、服饰（质感、装饰、纹理等）、背景（自然风景、建筑、家具等），但细节不应崩坏、扭曲。不改变人物的手部、脚部，防止出现多指等肢体崩坏的情况。不改变角色的眼睛颜色、发色等固有特征，但可以加以细化发丝、皮肤质感等。\n",
+        "",
+        ""
+      ],
+      "widgets_values_named": {
+        "string_a": "高清放大这张图并添加丰富的细节，可以大幅改变细化画风、服饰（质感、装饰、纹理等）、背景（自然风景、建筑、家具等），但细节不应崩坏、扭曲。不改变人物的手部、脚部，防止出现多指等肢体崩坏的情况。不改变角色的眼睛颜色、发色等固有特征，但可以加以细化发丝、皮肤质感等。\n",
+        "string_b": "",
+        "delimiter": ""
+      }
+    },
+    {
+      "id": 40,
+      "type": "GetImageSize",
+      "pos": [
+        2219.631807795918,
+        1323.0056035469472
+      ],
+      "size": [
+        140,
+        124
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 50
+        }
+      ],
+      "outputs": [
+        {
+          "name": "width",
+          "type": "INT",
+          "links": [
+            52
+          ]
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": [
+            53
+          ]
+        },
+        {
+          "name": "batch_size",
+          "type": "INT",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.38.1",
+        "Node name for S&R": "GetImageSize"
+      }
+    },
+    {
+      "id": 42,
+      "type": "ComfyMathExpression",
+      "pos": [
+        2385.9330636909444,
+        1207.0913983196706
+      ],
+      "size": [
+        210,
+        128
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "values.a",
+          "type": "FLOAT,INT,BOOLEAN",
+          "link": 52
+        },
+        {
+          "name": "values.b",
+          "shape": 7,
+          "type": "FLOAT,INT,BOOLEAN",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": null
+        },
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            54
+          ]
+        },
+        {
+          "name": "BOOL",
+          "type": "BOOLEAN",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.38.1",
+        "Node name for S&R": "ComfyMathExpression"
+      },
+      "widgets_values": [
+        "a*2"
+      ],
+      "widgets_values_named": {
+        "expression": "a*2"
+      }
+    },
+    {
+      "id": 43,
+      "type": "ComfyMathExpression",
+      "pos": [
+        2383.8631948336647,
+        1388.6348983918567
+      ],
+      "size": [
+        210,
+        128
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "values.a",
+          "type": "FLOAT,INT,BOOLEAN",
+          "link": 53
+        },
+        {
+          "name": "values.b",
+          "shape": 7,
+          "type": "FLOAT,INT,BOOLEAN",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": []
+        },
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            55
+          ]
+        },
+        {
+          "name": "BOOL",
+          "type": "BOOLEAN",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.38.1",
+        "Node name for S&R": "ComfyMathExpression"
+      },
+      "widgets_values": [
+        "a*2"
+      ],
+      "widgets_values_named": {
+        "expression": "a*2"
+      }
+    },
+    {
+      "id": 45,
+      "type": "StringConcatenate",
+      "pos": [
+        2856.075235451269,
+        657.2081420762865
+      ],
+      "size": [
+        210,
+        166
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "string_b",
+          "type": "STRING",
+          "widget": {
+            "name": "string_b"
+          },
+          "link": 58
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            56
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.38.1",
+        "Node name for S&R": "StringConcatenate"
+      },
+      "widgets_values": [
+        "GPT/",
+        "",
+        ""
+      ],
+      "widgets_values_named": {
+        "string_a": "GPT/",
+        "string_b": "",
+        "delimiter": ""
+      }
+    },
+    {
+      "id": 53,
+      "type": "Image Comparer (rgthree)",
+      "pos": [
+        2899.946546076185,
+        1835.7101194689317
+      ],
+      "size": [
+        680.2673274306484,
+        599.1725431475265
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [
+        {
+          "dir": 3,
+          "name": "image_a",
+          "type": "IMAGE",
+          "link": 70
+        },
+        {
+          "dir": 3,
+          "name": "image_b",
+          "type": "IMAGE",
+          "link": 69
+        }
+      ],
+      "outputs": [
+        {
+          "dir": 4,
+          "name": "images",
+          "shape": 3,
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "rgthree-comfy",
+        "ver": "8ff50e4521881eca1fe26aec9615fc9362474931",
+        "comparer_mode": "Slide"
+      },
+      "widgets_values": [
+        [
+          {
+            "name": "A1",
+            "selected": false,
+            "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00021_.png&type=temp&subfolder=&rand=0.1337297345559254"
+          },
+          {
+            "name": "A2",
+            "selected": false,
+            "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00023_.png&type=temp&subfolder=&rand=0.4030361386337019"
+          },
+          {
+            "name": "A3",
+            "selected": false,
+            "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00025_.png&type=temp&subfolder=&rand=0.1736202730739843"
+          },
+          {
+            "name": "A4",
+            "selected": false,
+            "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00027_.png&type=temp&subfolder=&rand=0.4129603071649044"
+          },
+          {
+            "name": "A5",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00029_.png&type=temp&subfolder=&rand=0.16899459740441136"
+          },
+          {
+            "name": "B1",
+            "selected": false,
+            "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00022_.png&type=temp&subfolder=&rand=0.979368176433131"
+          },
+          {
+            "name": "B2",
+            "selected": false,
+            "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00024_.png&type=temp&subfolder=&rand=0.6694841955756886"
+          },
+          {
+            "name": "B3",
+            "selected": false,
+            "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00026_.png&type=temp&subfolder=&rand=0.8519821818029407"
+          },
+          {
+            "name": "B4",
+            "selected": false,
+            "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00028_.png&type=temp&subfolder=&rand=0.2311587679829613"
+          },
+          {
+            "name": "B5",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00030_.png&type=temp&subfolder=&rand=0.9037835627833963"
+          }
+        ]
+      ],
+      "widgets_values_named": {
+        "rgthree_comparer": {
+          "images": [
+            {
+              "name": "A1",
+              "selected": false,
+              "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00021_.png&type=temp&subfolder=&rand=0.1337297345559254"
+            },
+            {
+              "name": "A2",
+              "selected": false,
+              "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00023_.png&type=temp&subfolder=&rand=0.4030361386337019"
+            },
+            {
+              "name": "A3",
+              "selected": false,
+              "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00025_.png&type=temp&subfolder=&rand=0.1736202730739843"
+            },
+            {
+              "name": "A4",
+              "selected": false,
+              "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00027_.png&type=temp&subfolder=&rand=0.4129603071649044"
+            },
+            {
+              "name": "A5",
+              "selected": true,
+              "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00029_.png&type=temp&subfolder=&rand=0.16899459740441136",
+              "img": {}
+            },
+            {
+              "name": "B1",
+              "selected": false,
+              "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00022_.png&type=temp&subfolder=&rand=0.979368176433131"
+            },
+            {
+              "name": "B2",
+              "selected": false,
+              "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00024_.png&type=temp&subfolder=&rand=0.6694841955756886"
+            },
+            {
+              "name": "B3",
+              "selected": false,
+              "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00026_.png&type=temp&subfolder=&rand=0.8519821818029407"
+            },
+            {
+              "name": "B4",
+              "selected": false,
+              "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00028_.png&type=temp&subfolder=&rand=0.2311587679829613"
+            },
+            {
+              "name": "B5",
+              "selected": true,
+              "url": "/api/view?filename=rgthree.compare._temp_kzxnz_00030_.png&type=temp&subfolder=&rand=0.9037835627833963",
+              "img": {}
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": 54,
+      "type": "ShowText|pysssss",
+      "pos": [
+        1577.4443837572856,
+        1402.4100699310345
+      ],
+      "size": [
+        554.7959193335832,
+        473.7826501655936
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 71
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "shape": 6,
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-custom-scripts",
+        "ver": "609f3afaa74b2f88ef9ce8d939626065e3247469",
+        "Node name for S&R": "ShowText|pysssss"
+      }
+    },
+    {
+      "id": 55,
+      "type": "ShowText|pysssss",
+      "pos": [
+        3469.430772296319,
+        705.4925896065688
+      ],
+      "size": [
+        656.8750545090311,
+        460.10046347853245
+      ],
+      "flags": {},
+      "order": 23,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "link": 72
+        }
+      ],
+      "outputs": [
+        {
+          "name": "STRING",
+          "shape": 6,
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-custom-scripts",
+        "ver": "609f3afaa74b2f88ef9ce8d939626065e3247469",
+        "Node name for S&R": "ShowText|pysssss"
+      }
+    }
+  ],
+  "links": [
+    [
+      2,
+      1,
+      0,
+      3,
+      0,
+      "IMAGE"
+    ],
+    [
+      13,
+      11,
+      0,
+      10,
+      0,
+      "STRING"
+    ],
+    [
+      26,
+      1,
+      2,
+      22,
+      0,
+      "STRING"
+    ],
+    [
+      27,
+      22,
+      0,
+      20,
+      0,
+      "STRING"
+    ],
+    [
+      28,
+      1,
+      3,
+      23,
+      0,
+      "STRING"
+    ],
+    [
+      29,
+      23,
+      0,
+      21,
+      0,
+      "STRING"
+    ],
+    [
+      36,
+      10,
+      2,
+      30,
+      0,
+      "STRING"
+    ],
+    [
+      39,
+      33,
+      0,
+      34,
+      0,
+      "STRING"
+    ],
+    [
+      40,
+      36,
+      0,
+      37,
+      0,
+      "STRING"
+    ],
+    [
+      41,
+      29,
+      0,
+      32,
+      0,
+      "IMAGE"
+    ],
+    [
+      42,
+      38,
+      0,
+      32,
+      1,
+      "STRING"
+    ],
+    [
+      44,
+      29,
+      3,
+      33,
+      0,
+      "STRING"
+    ],
+    [
+      45,
+      29,
+      4,
+      36,
+      0,
+      "STRING"
+    ],
+    [
+      50,
+      29,
+      0,
+      40,
+      0,
+      "IMAGE"
+    ],
+    [
+      56,
+      45,
+      0,
+      3,
+      1,
+      "STRING"
+    ],
+    [
+      69,
+      32,
+      0,
+      53,
+      1,
+      "IMAGE"
+    ],
+    [
+      70,
+      1,
+      0,
+      53,
+      0,
+      "IMAGE"
+    ],
+    [
+      52,
+      40,
+      0,
+      42,
+      0,
+      "INT"
+    ],
+    [
+      53,
+      40,
+      1,
+      43,
+      0,
+      "INT"
+    ],
+    [
+      43,
+      10,
+      0,
+      38,
+      0,
+      "STRING"
+    ],
+    [
+      49,
+      10,
+      1,
+      39,
+      0,
+      "STRING"
+    ],
+    [
+      58,
+      10,
+      0,
+      45,
+      0,
+      "STRING"
+    ],
+    [
+      33,
+      2,
+      0,
+      1,
+      0,
+      "CUSTOM_ENDPOINT_PROVIDER"
+    ],
+    [
+      47,
+      29,
+      0,
+      1,
+      1,
+      "IMAGE"
+    ],
+    [
+      48,
+      39,
+      0,
+      1,
+      4,
+      "STRING"
+    ],
+    [
+      54,
+      42,
+      1,
+      1,
+      5,
+      "INT"
+    ],
+    [
+      55,
+      43,
+      1,
+      1,
+      6,
+      "INT"
+    ],
+    [
+      38,
+      31,
+      0,
+      29,
+      0,
+      "CUSTOM_ENDPOINT_PROVIDER"
+    ],
+    [
+      37,
+      10,
+      1,
+      29,
+      3,
+      "STRING"
+    ],
+    [
+      35,
+      30,
+      0,
+      29,
+      4,
+      "COMBO"
+    ],
+    [
+      71,
+      29,
+      4,
+      54,
+      0,
+      "STRING"
+    ],
+    [
+      72,
+      1,
+      3,
+      55,
+      0,
+      "STRING"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "GPT二采",
+      "bounding": [
+        2215.3858210365947,
+        587.4424724308979,
+        1923.911119315117,
+        1060.042198183024
+      ],
+      "color": "#3f789e",
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "nano banana2.1一采",
+      "bounding": [
+        18.39238995350376,
+        754.3091677320274,
+        2127.787806207688,
+        1253.490905255103
+      ],
+      "color": "#3f789e",
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.5209868481924991,
+      "offset": [
+        -446.7757127970577,
+        -546.239883238974
+      ]
+    },
+    "frontendVersion": "1.53.6",
+    "reroutes": [
+      {
+        "id": 1,
+        "pos": [
+          639.2365132982284,
+          1023.60003065669
+        ],
+        "linkIds": [
+          58
+        ]
+      }
+    ],
+    "linkExtensions": [
+      {
+        "id": 58,
+        "parentId": 1
+      }
+    ]
+  },
+  "extensions": {
+    "seed_widgets": {
+      "1": 11,
+      "29": 9
+    }
+  },
+  "version": 0.4
+}

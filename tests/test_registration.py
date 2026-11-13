@@ -5,6 +5,9 @@ EXPECTED_NODES = {
     "CustomEndpointGPTImage",
     "CustomEndpointGeminiImage",
     "CustomEndpointGrokImage",
+    "CustomEndpointQwenImage",
+    "CustomEndpointQwenImageEdit",
+    "CustomEndpointAPIDetailer",
     "CustomEndpointGPTChat",
     "CustomEndpointGeminiChat",
     "CustomEndpointGrokChat",
@@ -18,6 +21,9 @@ CALL_NODES = (
     "CustomEndpointGPTImage",
     "CustomEndpointGeminiImage",
     "CustomEndpointGrokImage",
+    "CustomEndpointQwenImage",
+    "CustomEndpointQwenImageEdit",
+    "CustomEndpointAPIDetailer",
     "CustomEndpointGPTChat",
     "CustomEndpointGeminiChat",
     "CustomEndpointGrokChat",
@@ -73,6 +79,53 @@ def test_call_nodes_declare_the_widget_superset(package):
 
     gpt_chat = package.NODE_CLASS_MAPPINGS["CustomEndpointGPTChat"].INPUT_TYPES()
     assert {"instructions", "truncation", "reasoning_effort"} <= set(gpt_chat["required"])
+
+    qwen_image = package.NODE_CLASS_MAPPINGS["CustomEndpointQwenImage"].INPUT_TYPES()
+    assert {"prompt", "negative_prompt", "width", "height", "n", "seed",
+            "prompt_extend", "watermark"} <= set(qwen_image["required"])
+    assert "optional" not in qwen_image or not qwen_image["optional"]
+
+    qwen_edit = package.NODE_CLASS_MAPPINGS["CustomEndpointQwenImageEdit"].INPUT_TYPES()
+    assert {"size_mode", "width", "height", "negative_prompt"} <= set(qwen_edit["required"])
+    assert list(qwen_edit["optional"]) == ["image_1", "image_2", "image_3"]
+    assert qwen_edit["required"]["size_mode"][0] == ("match input", "auto", "custom")
+
+
+def test_detailer_declares_its_own_param_surface(package):
+    cls = package.NODE_CLASS_MAPPINGS["CustomEndpointAPIDetailer"]
+    spec = cls.INPUT_TYPES()
+    required = spec["required"]
+    assert {"image", "mask", "prompt", "crop_factor", "target_resolution",
+            "feather", "drop_size", "mask_grow", "paste_area",
+            "mask_guide"} <= set(required)
+    assert required["mask_guide"][0] == (
+        "none", "outline", "dim outside", "tint inside", "native mask",
+    )
+    assert required["mask_guide"][1]["default"] == "none"
+    assert required["paste_area"][0] == ("crop box", "mask")
+    assert required["paste_area"][1]["default"] == "crop box"
+    assert cls.RETURN_NAMES == (
+        "images", "texts", "request_log", "response_log", "cropped",
+    )
+    assert cls.OUTPUT_IS_LIST == (True, True, True, True, True)
+    assert set(cls.ALLOWED_PROTOCOLS) == {
+        "gemini", "openai_images", "grok", "qwen", "qwen_images",
+    }
+
+
+def test_every_protocol_is_offered_by_the_provider(package):
+    spec = package.NODE_CLASS_MAPPINGS["CustomEndpointProvider"].INPUT_TYPES()
+    options = spec["required"]["api_protocol"][0]
+    assert isinstance(options, tuple)
+    for protocol in ("auto", "openai_images", "openai_chat", "openai_responses", "gemini", "grok",
+                     "qwen", "qwen_images"):
+        assert protocol in options, protocol
+
+
+def test_qwen_nodes_accept_both_qwen_surfaces(package):
+    for node_id in ("CustomEndpointQwenImage", "CustomEndpointQwenImageEdit"):
+        cls = package.NODE_CLASS_MAPPINGS[node_id]
+        assert set(cls.ALLOWED_PROTOCOLS) == {"qwen", "qwen_images"}, node_id
 
 
 def test_omittable_combos_start_with_omit_sentinel(package):

@@ -10,6 +10,8 @@ import ce_nodes as nodes
 from conftest import (
     HandlerOpener,
     QueueOpener,
+    RawResponse,
+    content_box,
     image_tensor,
     json_response,
     mask_tensor,
@@ -343,6 +345,199 @@ def test_grok_image_generate_body(install_client):
 
 
 # ---------------------------------------------------------------------------
+# Qwen image
+# ---------------------------------------------------------------------------
+def qwen_handler(request):
+    """Serve the generation POST, then the signed-URL image download."""
+    if request.get_method() == "GET" or "cdn.example.com" in request.full_url:
+        return RawResponse(200, png_bytes(6, 6))
+    return json_response(
+        {
+            "output": {
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "role": "assistant",
+                            "content": [
+                                {"image": "https://cdn.example.com/result.png"},
+                                {"text": "ok"},
+                            ],
+                        },
+                    }
+                ]
+            },
+            "request_id": "req-qwen-1",
+        }
+    )
+
+
+def test_qwen_image_generate(install_client):
+    opener = HandlerOpener(qwen_handler)
+    install_client(opener)
+    node = nodes.CustomEndpointQwenImage()
+    kwargs = widget_defaults(nodes.CustomEndpointQwenImage)
+    kwargs["provider"] = make_provider(model="qwen-image-3.0-pro", api_protocol="qwen")
+    kwargs["prompt"] = ["一只在雪地里的狐狸"]
+    kwargs["n"] = [2]
+
+    images, texts, request_log, response_log = node.execute(**kwargs)
+
+    assert tuple(images[0].shape) == (1, 6, 6, 3)
+    assert texts[0] == "ok"
+    post = opener.calls[0]
+    assert post.full_url.endswith("/v1/services/aigc/multimodal-generation/generation")
+    body = json.loads(post.data.decode("utf-8"))
+    assert body["model"] == "qwen-image-3.0-pro"
+    assert body["parameters"]["size"] == "1024*1024"
+    assert body["parameters"]["n"] == 2
+    assert body["parameters"]["seed"] == 42
+    assert body["input"]["messages"][0]["content"] == [{"text": "一只在雪地里的狐狸"}]
+    log = json.loads(request_log[0])
+    assert log["operation"] == "generate"
+    assert "不发送" not in request_log[0]
+    response = json.loads(response_log[0])
+    assert response["ok"] is True
+    assert response["parsed"]["image_count"] == 1
+
+
+def test_qwen_image_edit_uses_reference_slots(install_client):
+    opener = HandlerOpener(qwen_handler)
+    install_client(opener)
+    node = nodes.CustomEndpointQwenImageEdit()
+    kwargs = widget_defaults(nodes.CustomEndpointQwenImageEdit)
+    kwargs["provider"] = make_provider(model="qwen-image-3.0", api_protocol="qwen")
+    kwargs["prompt"] = ["把 @Image1 的裙子换成蓝色"]
+    kwargs["image_1"] = [image_tensor(1, 8, 8)]
+
+    images, texts, request_log, response_log = node.execute(**kwargs)
+
+    assert tuple(images[0].shape) == (1, 6, 6, 3)
+    body = json.loads(opener.calls[0].data.decode("utf-8"))
+    content = body["input"]["messages"][0]["content"]
+    assert content[0]["image"].startswith("data:image/png;base64,")
+    assert content[1] == {"text": "把 Image 1 的裙子换成蓝色"}
+    # 8x8 is below the 512x512 floor, so "match input" is scaled into the window
+    assert body["parameters"]["size"] == "512*512"
+    log = json.loads(request_log[0])
+    assert log["operation"] == "edit"
+    assert len(log["images"]["reference_images"]) == 1
+    assert log["images"]["reference_images"][0] > 0
+    assert json.loads(response_log[0])["ok"] is True
+
+
+def test_qwen_edit_without_a_reference_image_fails_soft(install_client):
+    install_client(HandlerOpener(qwen_handler))
+    node = nodes.CustomEndpointQwenImageEdit()
+    kwargs = widget_defaults(nodes.CustomEndpointQwenImageEdit)
+    kwargs["provider"] = make_provider(model="qwen-image-3.0", api_protocol="qwen")
+    kwargs["prompt"] = ["x"]
+
+    images, texts, request_log, response_log = node.execute(**kwargs)
+    assert tuple(images[0].shape) == (1, 1, 1, 3)
+    assert "missing_image" in response_log[0]
+
+
+def test_qwen_node_rejects_another_family_provider(install_client):
+    install_client(QueueOpener())
+    node = nodes.CustomEndpointQwenImage()
+    kwargs = widget_defaults(nodes.CustomEndpointQwenImage)
+    kwargs["provider"] = make_provider()  # openai_images provider
+    kwargs["prompt"] = ["x"]
+
+    images, texts, request_log, response_log = node.execute(**kwargs)
+    assert tuple(images[0].shape) == (1, 1, 1, 3)
+    assert "protocol_mismatch" in response_log[0]
+
+
+def test_qwen_image_edit_on_a_relay_surface(install_client):
+    """qwen_images speaks /images/edits with a top-level data URL."""
+    opener = HandlerOpener(qwen_handler)
+    install_client(opener)
+    node = nodes.CustomEndpointQwenImageEdit()
+    kwargs = widget_defaults(nodes.CustomEndpointQwenImageEdit)
+    kwargs["provider"] = make_provider(
+        endpoint="https://relay.example.com", model="qwen-image-3.0-pro", api_protocol="qwen_images"
+    )
+    kwargs["prompt"] = ["把 @Image1 的手修好"]
+    kwargs["image_1"] = [image_tensor(1, 8, 8)]
+
+    images, texts, request_log, response_log = node.execute(**kwargs)
+
+    assert tuple(images[0].shape) == (1, 6, 6, 3)
+    post = opener.calls[0]
+    assert post.full_url == "https://relay.example.com/v1/images/edits"
+    body = json.loads(post.data.decode("utf-8"))
+    assert body["image"].startswith("data:image/png;base64,")
+    assert body["prompt"] == "把 Image 1 的手修好"
+    assert body["size"] == "512*512"  # 8x8 fitted into the window
+    assert json.loads(response_log[0])["ok"] is True
+
+
+def test_qwen_native_404_falls_back_to_the_relay_surface(install_client):
+    """A gateway that 404s the DashScope path is retried once on /images/edits."""
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        if "/multimodal-generation/generation" in request.full_url:
+            return json_response(
+                {
+                    "error": {
+                        "message": "Invalid URL (POST /v1/services/aigc/multimodal-generation/generation)",
+                        "type": "invalid_request_error",
+                        "param": "",
+                        "code": "",
+                    }
+                },
+                status=404,
+            )
+        return qwen_handler(request)
+
+    opener = HandlerOpener(handler)
+    install_client(opener)
+    node = nodes.CustomEndpointQwenImageEdit()
+    kwargs = widget_defaults(nodes.CustomEndpointQwenImageEdit)
+    kwargs["provider"] = make_provider(
+        endpoint="https://relay.example.com", model="qwen-image-3.0-pro", api_protocol="qwen"
+    )
+    kwargs["prompt"] = ["修一下手"]
+    kwargs["image_1"] = [image_tensor(1, 8, 8)]
+
+    images, texts, request_log, response_log = node.execute(**kwargs)
+
+    assert tuple(images[0].shape) == (1, 6, 6, 3), texts[0]
+    urls = [call.full_url for call in opener.calls]
+    assert urls[0].endswith("/v1/services/aigc/multimodal-generation/generation")
+    assert urls[1].endswith("/v1/images/edits")
+    log = json.loads(request_log[0])
+    assert log["extra"]["fallback"]["first_status"] == 404
+    assert log["url"].endswith("/v1/images/edits")
+    response = json.loads(response_log[0])
+    assert response["ok"] is True
+    assert response["extra"]["fallback"]["first_status"] == 404
+
+
+def test_qwen_other_404_is_not_retried_on_another_surface(install_client):
+    def handler(request):
+        return json_response({"error": {"message": "model not found"}}, status=404)
+
+    opener = HandlerOpener(handler)
+    install_client(opener)
+    node = nodes.CustomEndpointQwenImage()
+    kwargs = widget_defaults(nodes.CustomEndpointQwenImage)
+    kwargs["provider"] = make_provider(
+        endpoint="https://relay.example.com", model="qwen-image-9", api_protocol="qwen", retries=0
+    )
+    kwargs["prompt"] = ["x"]
+
+    images, texts, request_log, response_log = node.execute(**kwargs)
+    assert tuple(images[0].shape) == (1, 1, 1, 3)
+    assert len(opener.calls) == 1, "only a 'route missing' 404 may switch surfaces"
+    assert "model not found" in response_log[0]
+
+
+# ---------------------------------------------------------------------------
 # LLM nodes
 # ---------------------------------------------------------------------------
 def test_gpt_chat_returns_text(install_client):
@@ -398,11 +593,42 @@ def test_prompt_list_splits_lines():
     assert keep == ["a", "", " ", "c"]
 
 
-def test_batch_images_concatenates():
-    merged, = nodes.CustomEndpointBatchImages().merge(
+def test_batch_images_returns_a_padded_batch_and_the_raw_list():
+    merged, raw = nodes.CustomEndpointBatchImages().merge(
         image_tensor(1, 8, 8), image_2=image_tensor(2, 8, 8)
     )
     assert tuple(merged.shape) == (3, 8, 8, 3)
+    assert [tuple(frame.shape) for frame in raw] == [(1, 8, 8, 3)] * 3
+
+
+def test_batch_images_never_stretches_a_different_aspect_ratio():
+    wide = image_tensor(1, 4, 8, value=0.25)  # 2:1 landscape
+    merged, raw = nodes.CustomEndpointBatchImages().merge(
+        image_tensor(1, 8, 8, value=0.75), image_2=wide
+    )
+    assert tuple(merged.shape) == (2, 8, 8, 3)  # canvas = biggest frame
+    assert content_box(merged[1]) == (2, 6, 0, 8)  # letterboxed, aspect kept
+    assert tuple(raw[1].shape) == (1, 4, 8, 3)  # the list keeps the native size
+
+
+def test_batch_images_honours_the_canvas_widgets():
+    node = nodes.CustomEndpointBatchImages()
+    merged, _ = node.merge(
+        image_tensor(1, 4, 8), image_2=image_tensor(1, 8, 4),
+        size_mode="manual", width=12, height=6, size_multiple=4,
+    )
+    assert tuple(merged.shape) == (2, 8, 12, 3)  # 6 -> 8, 12 -> 12
+    stretched, _ = node.merge(
+        image_tensor(1, 4, 8), image_2=image_tensor(1, 8, 4), fit="stretch"
+    )
+    assert tuple(stretched.shape) == (2, 8, 8, 3)
+    assert content_box(stretched[0]) == (0, 8, 0, 8)  # stretch fills the canvas
+
+
+def test_batch_images_without_inputs_returns_the_placeholder():
+    merged, raw = nodes.CustomEndpointBatchImages().merge(None)
+    assert tuple(merged.shape) == (1, 1, 1, 3)
+    assert len(raw) == 1
 
 
 def test_file_loaders_tag_their_family(tmp_path, monkeypatch):
